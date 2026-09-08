@@ -21,6 +21,8 @@ class ProjectResponse(BaseModel):
     physical_progress: float = Field(default=0.0, ge=0, le=100)
     financial_progress: float = Field(default=0.0, ge=0, le=100)
     status: str = "ON_TRACK"
+    contractor_id: Optional[int] = None
+    contractor_name: Optional[str] = None
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -319,3 +321,105 @@ class RootResponse(BaseModel):
     organization: str
     message: str
     version: str = "2.0.0"
+
+
+# =========================================================
+# CONTRACTOR FRAUD & ELIGIBILITY SCHEMAS
+# =========================================================
+
+class ContractorHistorySchema(BaseModel):
+    id: int
+    contractor_id: int
+    project_name: str
+    ministry: Optional[str] = None
+    sanctioned_budget: float
+    actual_cost: float
+    cost_overrun_pct: float
+    planned_days: int
+    actual_days: int
+    delay_days: int
+    completion_status: str
+    audit_irregularity_flag: int
+    year_completed: int
+
+    class Config:
+        from_attributes = True
+
+
+class ContractorSummarySchema(BaseModel):
+    id: int
+    name: str
+    pan_cin: Optional[str] = None
+    incorporation_year: int
+    category: str
+    status: str
+    avg_rating: float
+    shell_risk_score: float
+    ghost_billing_flags: int
+    litigation_count: int
+    tax_compliance_status: str
+    max_project_budget_handled: float
+
+    class Config:
+        from_attributes = True
+
+
+class ContractorDetailSchema(ContractorSummarySchema):
+    histories: List[ContractorHistorySchema] = []
+
+    class Config:
+        from_attributes = True
+
+
+class ContractorEvaluationRequest(BaseModel):
+    contractor_id: Optional[int] = None
+    # Or custom contractor inputs
+    contractor_name: Optional[str] = None
+    category: Optional[str] = "Tier-2"
+    shell_risk_score: Optional[float] = 10.0
+    ghost_billing_flags: Optional[int] = 0
+    litigation_count: Optional[int] = 0
+    tax_compliance_status: Optional[str] = "COMPLIANT"
+    max_project_budget_handled: Optional[float] = 50000000.0
+    avg_cost_overrun_pct: Optional[float] = 5.0
+    avg_delay_days: Optional[float] = 20.0
+    on_time_delivery_rate: Optional[float] = 0.85
+    solvency_score: Optional[float] = 75.0
+
+    # Project parameters
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    project_budget: Optional[float] = None
+    department: Optional[str] = None
+
+
+class ContractorEvaluationResponse(BaseModel):
+    contractor_name: str
+    category: str
+    project_name: str
+    project_budget_cr: float
+    max_handled_cr: float
+    budget_scale_ratio: float
+    verdict: str
+    verdict_badge: str
+    verdict_class: str
+    verdict_summary: str
+    is_recommended: bool
+    eligibility_score: float
+    fraud_risk_score: float
+    component_scores: Dict[str, float]
+    historical_metrics: Dict[str, Any]
+    risk_drivers: List[Dict[str, Any]]
+    safeguards: List[str]
+    model_metadata: Dict[str, Any]
+
+
+class ContractorRetrainResponse(BaseModel):
+    status: str
+    message: str
+    accuracy: float
+    precision: float
+    recall: float
+    roc_auc: float
+    total_samples: int
+    feature_importances: Dict[str, float]

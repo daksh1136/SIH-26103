@@ -7,30 +7,29 @@ ProjectPulse is an enterprise-grade, AI-powered project monitoring and decision 
 The platform transforms infrastructure monitoring from passive retrospective reporting into proactive, predictive governance through explainable ML risk analysis (SHAP), dynamic 0–100 health scoring, What-If policy intervention simulation, unsupervised anomaly screening, geospatial GIS heatmaps, and continuous feedback learning loops.
 
 🌐 **Permanent Live Dashboard (GitHub Pages — Never Expires):** [https://daksh1136.github.io/SIH-26103/](https://daksh1136.github.io/SIH-26103/)  
-⚡ **Active Vercel Preview:** [https://temporary-spry-sable-d1spxf4.vercel.app](https://temporary-spry-sable-d1spxf4.vercel.app)  
-🔒 **Claim Vercel Deployment Permanently:** [Claim to Your Vercel Account](https://vercel.com/claim-deployment?code=2c203f47-f4e2-481e-8698-32ffe91460e1)  
+⚡ **Active Vercel Preview:** [https://temporary-brisk-breeze-dhh3y75.vercel.app](https://temporary-brisk-breeze-dhh3y75.vercel.app)  
+🔒 **Claim Vercel Deployment Permanently:** [Claim to Your Vercel Account](https://vercel.com/claim-deployment?code=45dcd69f-583d-40f9-8c51-04ac4e8d50ea)  
 🚀 **1-Click Permanent Auto-Deploy with Vercel:** [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdaksh1136%2FSIH-26103&root-directory=frontend)
 
 ---
-
 
 ## 🏗️ Platform Architecture
 
 ```
 SIH-26103/
-├── frontend/               # React 19 + Vite: Executive Dashboard, What-If Lab, GIS, Learning Loop, AI Assistant
-├── backend/                # FastAPI Gateway: Project APIs, Milestones, Alerts, & AI Bridge (port 8000)
+├── frontend/               # React 19 + Vite: Executive Dashboard, What-If Lab, Contractor Due Diligence, GIS, AI Assistant
+├── backend/                # FastAPI Gateway: Project APIs, Milestones, Alerts, Contractors & AI Bridge (port 8000)
 ├── database/               # Relational SQLite DB (projectpulse.db), Schema DDL, & Python Seeder
-├── ai_engine/              # Standalone Intelligence: Random Forest, XGBoost, Isolation Forest, SHAP
+├── ai_engine/              # Standalone Intelligence: Random Forest, XGBoost, Contractor Fraud Classifier, SHAP
 ├── vercel.json             # Live deployment configuration for Vercel
 └── README.md
 ```
 
 ---
 
-## 🎯 Complete 10-Point AI Intelligence Suite
+## 🎯 Complete 11-Point AI Intelligence Suite
 
-ProjectPulse integrates all 10 core intelligence pillars:
+ProjectPulse integrates all 11 core intelligence pillars:
 
 1. **🔮 Project Failure Prediction Engine**: Multi-dimensional ML risk scoring (Schedule, Physical, Financial, Milestones, Resources, Contractor Quality) predicting completion delay days and failure probability before cost overruns occur.
 2. **🧠 Explainable Risk AI (SHAP Analysis)**: Model-agnostic Shapley feature attributions with visual contribution bars highlighting exact positive and negative drivers behind every risk score.
@@ -42,6 +41,7 @@ ProjectPulse integrates all 10 core intelligence pillars:
 8. **🕵️ Anomaly & Data-Integrity Detection**: Unsupervised Isolation Forest detection identifying expenditure-progress decoupling and ghost-reporting irregularities adhering to non-accusatory inquiry workflows.
 9. **🌍 Dynamic Geospatial Risk Heatmap**: Interactive GIS mapping of infrastructure projects across Indian states and corridors with clustered risk severity heat overlays.
 10. **🔄 AI Feedback & Continuous Learning Loop**: Ground-truth field outcome verification interface, KS-test distribution drift monitoring, K-Fold cross-validation metrics, and prediction vs. actual audit logging.
+11. **🛡️ Contractor Fraud Detection & Tender Eligibility Assessment Hub**: Multi-project historical track record registry, trained Random Forest fraud and capacity over-extension classifier, ghost-billing and shell-entity detection, and interactive tender award fitness simulator delivering explicit verdicts ("Approved", "Conditional Approval", "Disqualified") pursuant to MoSPI GFR Rule 175.
 
 ---
 

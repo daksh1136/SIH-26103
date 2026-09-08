@@ -139,6 +139,56 @@ def test_learning_loop_feedback():
     assert result["status"] == "SUCCESS"
     print(f"✓ test_learning_loop_feedback passed: {result['message']}")
 
+def test_contractors_list():
+    res = client.get("/api/contractors")
+    assert res.status_code == 200
+    contractors = res.json()
+    assert len(contractors) >= 10
+    print(f"✓ test_contractors_list passed: {len(contractors)} contractors found")
+
+def test_contractor_detail():
+    res = client.get("/api/contractors/1")
+    assert res.status_code == 200
+    detail = res.json()
+    assert detail["id"] == 1
+    assert "Larsen" in detail["name"]
+    assert len(detail["histories"]) >= 1
+    print(f"✓ test_contractor_detail passed: #{detail['id']} {detail['name']} with {len(detail['histories'])} past projects")
+
+def test_contractor_evaluate_pristine():
+    payload = {
+        "contractor_id": 1,
+        "project_id": 1,
+    }
+    res = client.post("/api/contractors/evaluate", json=payload)
+    assert res.status_code == 200
+    eval_res = res.json()
+    assert eval_res["verdict"] == "APPROVED"
+    assert eval_res["is_recommended"] is True
+    assert eval_res["eligibility_score"] >= 80.0
+    print(f"✓ test_contractor_evaluate_pristine passed: Verdict {eval_res['verdict']} (Score: {eval_res['eligibility_score']})")
+
+def test_contractor_evaluate_disqualified():
+    payload = {
+        "contractor_id": 8,  # Apex Shell Engineering
+        "project_id": 1,
+    }
+    res = client.post("/api/contractors/evaluate", json=payload)
+    assert res.status_code == 200
+    eval_res = res.json()
+    assert eval_res["verdict"] == "DISQUALIFIED"
+    assert eval_res["is_recommended"] is False
+    assert eval_res["eligibility_score"] < 55.0
+    print(f"✓ test_contractor_evaluate_disqualified passed: Verdict {eval_res['verdict']} (Score: {eval_res['eligibility_score']})")
+
+def test_contractor_retrain():
+    res = client.post("/api/contractors/retrain")
+    assert res.status_code == 200
+    retrain_res = res.json()
+    assert retrain_res["status"] == "SUCCESS"
+    assert retrain_res["accuracy"] >= 0.90
+    print(f"✓ test_contractor_retrain passed: Accuracy {retrain_res['accuracy']*100:.1f}%")
+
 if __name__ == "__main__":
     print("\n==============================================")
     print("🧪 RUNNING PROJECTPULSE END-TO-END TEST SUITE")
@@ -156,6 +206,11 @@ if __name__ == "__main__":
     test_learning_loop_metrics()
     test_learning_loop_history()
     test_learning_loop_feedback()
+    test_contractors_list()
+    test_contractor_detail()
+    test_contractor_evaluate_pristine()
+    test_contractor_evaluate_disqualified()
+    test_contractor_retrain()
     print("\n==============================================")
-    print("✅ ALL 13 END-TO-END TESTS PASSED SUCCESSFULLY!")
+    print("✅ ALL 18 END-TO-END TESTS PASSED SUCCESSFULLY!")
     print("==============================================\n")

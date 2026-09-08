@@ -4290,3 +4290,593 @@ footer {
   font-size: 14px;
   margin-bottom: 20px;
 }
+/* ===================================================
+   CONTRACTOR FRAUD DETECTION & DUE DILIGENCE HUB
+   =================================================== */
+
+.vetting-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.vetting-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.vetting-stats-grid .stat-card {
+  background: #ffffff;
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vetting-stats-grid .stat-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.vetting-stats-grid .stat-val {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.vetting-stats-grid .stat-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.vetting-simulator-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.simulator-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.step-tag {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1;
+  white-space: nowrap;
+}
+
+.vetting-config-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .vetting-config-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.config-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.config-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.config-box-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.toggle-pill-group {
+  display: inline-flex;
+  background: #e2e8f0;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.toggle-pill-group button {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggle-pill-group button.active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.meta-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 8px;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.meta-hint span strong {
+  color: #0f172a;
+}
+
+.simulator-action-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.run-vetting-btn {
+  padding: 12px 28px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  cursor: pointer;
+}
+
+/* ===================================================
+   VERDICT BANNER
+   =================================================== */
+.vetting-result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.verdict-banner {
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-width: 2px;
+  border-style: solid;
+}
+
+.verdict-approved {
+  background: #f0fdf4;
+  border-color: #22c55e;
+  color: #14532d;
+}
+
+.verdict-conditional {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #78350f;
+}
+
+.verdict-disqualified {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #7f1d1d;
+}
+
+.verdict-banner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.verdict-tag-pill {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.verdict-meta-badges {
+  display: flex;
+  gap: 14px;
+  font-size: 0.85rem;
+}
+
+.verdict-summary-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* ===================================================
+   SCORE GAUGES & METRIC METERS
+   =================================================== */
+.vetting-score-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.vetting-gauge-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gauge-title {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.gauge-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.gauge-value.approved {
+  color: #10b981;
+}
+
+.gauge-value.conditional {
+  color: #f59e0b;
+}
+
+.gauge-value.disqualified {
+  color: #ef4444;
+}
+
+.mini-meter {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin: 4px 0;
+}
+
+.mini-meter-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+}
+
+.mini-meter-fill.approved {
+  background: #10b981;
+}
+
+.mini-meter-fill.conditional {
+  background: #f59e0b;
+}
+
+.mini-meter-fill.disqualified {
+  background: #ef4444;
+}
+
+.vetting-gauge-card small {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+/* Component Breakdown Bars */
+.component-breakdown-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.component-breakdown-box h4 {
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+
+.component-bars-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+}
+
+@media (max-width: 768px) {
+  .component-bars-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.comp-bar-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+  color: #475569;
+}
+
+.comp-bar-head strong {
+  color: #0f172a;
+}
+
+/* Side-by-Side Details */
+.vetting-details-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .vetting-details-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.drivers-card, .safeguards-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.drivers-card h3, .safeguards-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.driver-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.driver-item {
+  border-radius: 8px;
+  padding: 10px 14px;
+  border-left: 4px solid;
+}
+
+.driver-item.positive {
+  background: #f0fdf4;
+  border-color: #22c55e;
+}
+
+.driver-item.negative {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.driver-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.driver-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.driver-impact.positive {
+  color: #15803d;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.driver-impact.negative {
+  color: #b91c1c;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.driver-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.safeguards-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.safeguard-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.sg-bullet {
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 800;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.safeguard-footer {
+  margin-top: auto;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 10px;
+  color: #94a3b8;
+}
+
+/* ===================================================
+   CONTRACTOR DIRECTORY & BADGES
+   =================================================== */
+.contractor-directory-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.directory-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.badge-tier {
+  display: inline-block;
+  padding: 3px 8px;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pill-approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pill-watchlist {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.pill-disqualified {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-ghost {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge-ghost.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-ghost.clean {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+/* Project Card Contractor Chip */
+.project-contractor-chip {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.project-contractor-chip:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.contractor-chip-icon {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.project-contractor-chip strong {
+  color: #0f172a;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contractor-verify-link {
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Dossier Modal */
+.dossier-modal {
+  max-width: 800px;
+  width: 95%;
+}
+
+.dossier-summary-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}

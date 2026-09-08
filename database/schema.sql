@@ -12,11 +12,53 @@ CREATE TABLE projects (
 	physical_progress FLOAT, 
 	financial_progress FLOAT, 
 	status VARCHAR(50), 
+	contractor_id INTEGER,
+	contractor_name VARCHAR(200),
 	created_at DATETIME, 
 	PRIMARY KEY (id)
 );
 CREATE INDEX ix_projects_id ON projects (id);
+
+CREATE TABLE contractors (
+	id INTEGER NOT NULL,
+	name VARCHAR(200) NOT NULL,
+	pan_cin VARCHAR(50),
+	incorporation_year INTEGER,
+	category VARCHAR(50),
+	status VARCHAR(50),
+	avg_rating FLOAT,
+	shell_risk_score FLOAT,
+	ghost_billing_flags INTEGER,
+	litigation_count INTEGER,
+	tax_compliance_status VARCHAR(50),
+	max_project_budget_handled FLOAT,
+	created_at DATETIME,
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_contractors_id ON contractors (id);
+
+CREATE TABLE contractor_project_history (
+	id INTEGER NOT NULL,
+	contractor_id INTEGER NOT NULL,
+	project_name VARCHAR(200) NOT NULL,
+	ministry VARCHAR(150),
+	sanctioned_budget FLOAT,
+	actual_cost FLOAT,
+	cost_overrun_pct FLOAT,
+	planned_days INTEGER,
+	actual_days INTEGER,
+	delay_days INTEGER,
+	completion_status VARCHAR(50),
+	audit_irregularity_flag INTEGER,
+	year_completed INTEGER,
+	PRIMARY KEY (id),
+	FOREIGN KEY(contractor_id) REFERENCES contractors (id)
+);
+CREATE INDEX ix_contractor_project_history_id ON contractor_project_history (id);
+CREATE INDEX ix_contractor_project_history_contractor_id ON contractor_project_history (contractor_id);
+
 CREATE TABLE milestones (
+
 	id INTEGER NOT NULL, 
 	project_id INTEGER NOT NULL, 
 	name VARCHAR(200) NOT NULL, 

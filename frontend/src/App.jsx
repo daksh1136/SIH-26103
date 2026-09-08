@@ -19,6 +19,13 @@ import {
   fetchLearningMetrics,
   fetchHistoricalPredictions,
   submitModelFeedback,
+  INITIAL_CONTRACTORS,
+  INITIAL_CONTRACTOR_HISTORIES,
+  evaluateContractorEligibility,
+  fetchContractors,
+  fetchContractorDetail,
+  evaluateContractorApi,
+  retrainContractorModelApi,
 } from "./aiEngineClient";
 
 function money(value = 0) {
@@ -51,6 +58,52 @@ export default function App() {
   const [sortBy, setSortBy] = useState("relevance");
   const [sortDir, setSortDir] = useState("desc");
   const [projectViewMode, setProjectViewMode] = useState("cards"); // 'cards' | 'table'
+
+  // Contractor Fraud Detection & Due Diligence State
+  const [contractors, setContractors] = useState(INITIAL_CONTRACTORS);
+  const [selectedContractorDossier, setSelectedContractorDossier] = useState(null);
+  const [vettingProjectMode, setVettingProjectMode] = useState("existing"); // 'existing' | 'new'
+  const [vettingContractorMode, setVettingContractorMode] = useState("empaneled"); // 'empaneled' | 'new'
+  const [vettingProjectId, setVettingProjectId] = useState(1);
+  const [vettingContractorId, setVettingContractorId] = useState(1);
+  const [customVettingProject, setCustomVettingProject] = useState({
+    name: "New Greenfield Expressway Lot 4",
+    department: "Infrastructure",
+    budget_cr: 120,
+    duration_months: 24,
+  });
+  const [customVettingContractor, setCustomVettingContractor] = useState({
+    name: "Apex Buildtech Consortium Pvt Ltd",
+    category: "Tier-2",
+    max_handled_cr: 35,
+    turnover_cr: 85,
+    delivery_rate: 80,
+    avg_overrun: 12,
+    avg_delay: 45,
+    ghost_flags: 0,
+    shell_risk: 18,
+    litigation: 1,
+    tax_status: "COMPLIANT",
+    solvency_score: 76,
+  });
+  const [vettingResult, setVettingResult] = useState(() =>
+    evaluateContractorEligibility(
+      INITIAL_CONTRACTORS[0],
+      INITIAL_PROJECTS[0],
+      INITIAL_CONTRACTOR_HISTORIES.filter((h) => h.contractor_id === 1)
+    )
+  );
+  const [contractorFilter, setContractorFilter] = useState("ALL");
+  const [contractorSearch, setContractorSearch] = useState("");
+  const [contractorModelMeta, setContractorModelMeta] = useState({
+    accuracy: 1.0,
+    precision: 1.0,
+    recall: 1.0,
+    roc_auc: 1.0,
+    total_samples: 800,
+  });
+  const [isRetrainingContractor, setIsRetrainingContractor] = useState(false);
+  const [isEvaluatingContractor, setIsEvaluatingContractor] = useState(false);
 
   // Learning Loop State (Feature 10)
   const [learningMetrics, setLearningMetrics] = useState(DEFAULT_LEARNING_METRICS);
@@ -87,6 +140,10 @@ export default function App() {
         }
         if (metrics) setLearningMetrics(metrics);
         if (logs) setAuditLogs(logs);
+        const dbContractors = await fetchContractors();
+        if (dbContractors && dbContractors.length > 0) {
+          setContractors(dbContractors);
+        }
       }
     }
     syncWithBackend();
@@ -114,6 +171,88 @@ export default function App() {
 
   // Escalation toast
   const [toastMessage, setToastMessage] = useState("");
+
+  // Contractor Due Diligence Handlers
+  const handleRunVettingAnalysis = async (cId = vettingContractorId, pId = vettingProjectId) => {
+    setIsEvaluatingContractor(true);
+    try {
+      let targetContractor;
+      let targetProject;
+      let histories = [];
+
+      if (vettingContractorMode === "empaneled") {
+        targetContractor = contractors.find((c) => c.id === Number(cId)) || contractors[0];
+        histories = INITIAL_CONTRACTOR_HISTORIES.filter((h) => h.contractor_id === targetContractor.id);
+      } else {
+        targetContractor = {
+          name: customVettingContractor.name,
+          category: customVettingContractor.category,
+          max_project_budget_handled: Number(customVettingContractor.max_handled_cr) * 10000000,
+          on_time_delivery_rate: Number(customVettingContractor.delivery_rate) / 100,
+          avg_cost_overrun_pct: Number(customVettingContractor.avg_overrun),
+          avg_delay_days: Number(customVettingContractor.avg_delay),
+          ghost_billing_flags: Number(customVettingContractor.ghost_flags),
+          shell_risk_score: Number(customVettingContractor.shell_risk),
+          litigation_count: Number(customVettingContractor.litigation),
+          tax_compliance_status: customVettingContractor.tax_status,
+          solvency_score: Number(customVettingContractor.solvency_score),
+          status: "APPROVED",
+        };
+      }
+
+      if (vettingProjectMode === "existing") {
+        targetProject = projects.find((p) => p.id === Number(pId)) || projects[0];
+      } else {
+        targetProject = {
+          name: customVettingProject.name,
+          department: customVettingProject.department,
+          approved_budget: Number(customVettingProject.budget_cr) * 10000000,
+        };
+      }
+
+      const evalRes = await evaluateContractorApi({
+        contractor_id: vettingContractorMode === "empaneled" ? targetContractor.id : null,
+        project_id: vettingProjectMode === "existing" ? targetProject.id : null,
+        ...targetContractor,
+        project_name: targetProject.name,
+        project_budget: targetProject.approved_budget,
+      });
+
+      setVettingResult(evalRes);
+      triggerToast(`AI Evaluation Complete: ${evalRes.verdict} (${evalRes.eligibility_score}/100)`);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsEvaluatingContractor(false);
+    }
+  };
+
+  const handleOpenContractorVetting = (contractorId, projectId) => {
+    if (contractorId) setVettingContractorId(Number(contractorId));
+    if (projectId) setVettingProjectId(Number(projectId));
+    setVettingContractorMode("empaneled");
+    setVettingProjectMode("existing");
+    setActiveNav("Fraud & Vetting");
+    handleRunVettingAnalysis(contractorId, projectId);
+  };
+
+  const handleViewContractorDossier = async (contractorId) => {
+    const detail = await fetchContractorDetail(contractorId);
+    setSelectedContractorDossier(detail);
+  };
+
+  const handleRetrainContractorModel = async () => {
+    setIsRetrainingContractor(true);
+    try {
+      const res = await retrainContractorModelApi();
+      setContractorModelMeta(res);
+      triggerToast(`Contractor Fraud ML model successfully retrained! (Accuracy: ${(res.accuracy * 100).toFixed(1)}%)`);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsRetrainingContractor(false);
+    }
+  };
 
   // Search relevance score calculator
   const getSearchRelevance = (p, query) => {
@@ -436,6 +575,7 @@ export default function App() {
             ["Dashboard", "▦"],
             ["Projects", "▣"],
             ["What-If Lab", "⚡"],
+            ["Fraud & Vetting", "🛡️"],
             ["Anomalies", "🔍"],
             ["Dependencies", "☊"],
             ["GIS Map", "🗺"],
@@ -451,6 +591,11 @@ export default function App() {
             >
               <span className="nav-icon">{icon}</span>
               <span>{label}</span>
+              {label === "Fraud & Vetting" && (
+                <span className="nav-badge danger">
+                  {contractors.filter((c) => c.status === "DISQUALIFIED").length}
+                </span>
+              )}
               {label === "Alerts" && alerts.length > 0 && (
                 <span className="nav-badge">{alerts.length}</span>
               )}
@@ -766,7 +911,15 @@ export default function App() {
                             <tr key={p.id}>
                               <td>
                                 <strong>{p.name}</strong>
-                                <small style={{ display: "block", color: "#64748b" }}>#{p.id} • {p.manager}</small>
+                                <small style={{ display: "block", color: "#64748b" }}>
+                                  #{p.id} • {p.manager} • <span
+                                    style={{ color: "#3b82f6", cursor: "pointer", fontWeight: 600 }}
+                                    onClick={() => handleOpenContractorVetting(p.contractor_id || 1, p.id)}
+                                    title="Run AI Due Diligence Assessment"
+                                  >
+                                    🛡️ {p.contractor_name || "Contractor"}
+                                  </span>
+                                </small>
                               </td>
                               <td><span className="badge-dept-inline">{p.department}</span></td>
                               <td>📍 {p.location}</td>
@@ -1001,7 +1154,15 @@ export default function App() {
                             <tr key={p.id}>
                               <td>
                                 <strong>{p.name}</strong>
-                                <small style={{ display: "block", color: "#64748b" }}>#{p.id} • {p.manager}</small>
+                                <small style={{ display: "block", color: "#64748b" }}>
+                                  #{p.id} • {p.manager} • <span
+                                    style={{ color: "#3b82f6", cursor: "pointer", fontWeight: 600 }}
+                                    onClick={() => handleOpenContractorVetting(p.contractor_id || 1, p.id)}
+                                    title="Run AI Due Diligence Assessment"
+                                  >
+                                    🛡️ {p.contractor_name || "Contractor"}
+                                  </span>
+                                </small>
                               </td>
                               <td><span className="badge-dept-inline">{p.department}</span></td>
                               <td>📍 {p.location}</td>
@@ -1083,6 +1244,16 @@ export default function App() {
                         </div>
 
                         <p className="project-desc">{p.description}</p>
+
+                        <div
+                          className="project-contractor-chip"
+                          onClick={() => handleOpenContractorVetting(p.contractor_id || 1, p.id)}
+                          title="Click to run AI Fraud & Tender Eligibility Assessment"
+                        >
+                          <span className="contractor-chip-icon">🛡️ Contractor:</span>
+                          <strong>{p.contractor_name || "Larsen & Mega Infrastructure Ltd"}</strong>
+                          <span className="contractor-verify-link">Verify Tender Fit →</span>
+                        </div>
 
                         <div className="project-metrics-grid">
                           <div>
@@ -1342,6 +1513,635 @@ export default function App() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* ===================================================
+              VIEW: FRAUD DETECTION & CONTRACTOR DUE DILIGENCE HUB
+          ==================================================== */}
+          {activeNav === "Fraud & Vetting" && (
+            <div className="vetting-view">
+              {/* VIEW HEADER */}
+              <div className="view-header">
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <h1>🛡️ Fraud Detection & Contractor Due Diligence Hub</h1>
+                    <span className="live-pill" style={{ background: "#ecfdf5", color: "#059669", borderColor: "#a7f3d0" }}>
+                      ● ML Model Active ({contractorModelMeta.accuracy ? (contractorModelMeta.accuracy * 100).toFixed(1) : 100}% Accuracy)
+                    </span>
+                  </div>
+                  <p>
+                    AI-powered procurement screening, historical track record verification, ghost-billing detection, and tender award fitness assessment under MoSPI Rule 175.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <button
+                    className="btn-outline"
+                    onClick={handleRetrainContractorModel}
+                    disabled={isRetrainingContractor}
+                  >
+                    {isRetrainingContractor ? "Training Ensemble..." : "🔄 Retrain Fraud Model"}
+                  </button>
+                </div>
+              </div>
+
+              {/* STATS OVERVIEW CARDS */}
+              <div className="vetting-stats-grid">
+                <div className="stat-card">
+                  <span className="stat-label">🏛️ Total Empaneled</span>
+                  <strong className="stat-val">{contractors.length}</strong>
+                  <span className="stat-sub">Central & State PWD Registry</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">✅ Approved & Cleared</span>
+                  <strong className="stat-val" style={{ color: "#10b981" }}>
+                    {contractors.filter((c) => c.status === "APPROVED").length}
+                  </strong>
+                  <span className="stat-sub">Passed All Fraud Envelopes</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">⚠️ Enhanced Oversight</span>
+                  <strong className="stat-val" style={{ color: "#f59e0b" }}>
+                    {contractors.filter((c) => c.status === "WATCHLIST").length}
+                  </strong>
+                  <span className="stat-sub">Conditional Escrow Required</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">🚫 High Fraud Risk / Disqualified</span>
+                  <strong className="stat-val" style={{ color: "#ef4444" }}>
+                    {contractors.filter((c) => c.status === "DISQUALIFIED").length}
+                  </strong>
+                  <span className="stat-sub">Ineligible under Rule 175</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">🚨 Ghost-Billing Red Flags</span>
+                  <strong className="stat-val" style={{ color: "#8b5cf6" }}>
+                    {contractors.reduce((acc, c) => acc + Number(c.ghost_billing_flags || 0), 0)}
+                  </strong>
+                  <span className="stat-sub">Detected Invoice Mismatches</span>
+                </div>
+              </div>
+
+              {/* TENDER SCREENING & FRAUD SIMULATOR */}
+              <div className="card vetting-simulator-card">
+                <div className="simulator-header">
+                  <div>
+                    <h2>⚡ Tender Fitness & Fraud Screening Simulator</h2>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>
+                      Assess whether a contractor has the track record and capacity to successfully deliver a project without default or fraud.
+                    </p>
+                  </div>
+                  <span className="step-tag">Step 1: Configure → Step 2: Run AI Model</span>
+                </div>
+
+                <div className="vetting-config-columns">
+                  {/* PROJECT COLUMN */}
+                  <div className="config-box">
+                    <div className="config-box-header">
+                      <h4>1. Target Infrastructure Project</h4>
+                      <div className="toggle-pill-group">
+                        <button
+                          type="button"
+                          className={vettingProjectMode === "existing" ? "active" : ""}
+                          onClick={() => setVettingProjectMode("existing")}
+                        >
+                          Existing Project
+                        </button>
+                        <button
+                          type="button"
+                          className={vettingProjectMode === "new" ? "active" : ""}
+                          onClick={() => setVettingProjectMode("new")}
+                        >
+                          + New Project
+                        </button>
+                      </div>
+                    </div>
+
+                    {vettingProjectMode === "existing" ? (
+                      <div className="form-group">
+                        <label>Select Listed Project:</label>
+                        <select
+                          className="form-control"
+                          value={vettingProjectId}
+                          onChange={(e) => setVettingProjectId(Number(e.target.value))}
+                        >
+                          {projects.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.department}, {money(p.approved_budget)})
+                            </option>
+                          ))}
+                        </select>
+                        {(() => {
+                          const p = projects.find((x) => x.id === vettingProjectId) || projects[0];
+                          return (
+                            <div className="meta-hint">
+                              <span>Sanctioned Budget: <strong>{money(p.approved_budget)}</strong></span>
+                              <span>Sector: <strong>{p.department}</strong></span>
+                              <span>State: <strong>{p.location}</strong></span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="form-grid-2">
+                        <div className="form-group">
+                          <label>New Project Title:</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customVettingProject.name}
+                            onChange={(e) => setCustomVettingProject({ ...customVettingProject, name: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Ministry / Sector:</label>
+                          <select
+                            className="form-control"
+                            value={customVettingProject.department}
+                            onChange={(e) => setCustomVettingProject({ ...customVettingProject, department: e.target.value })}
+                          >
+                            <option value="Infrastructure">Infrastructure</option>
+                            <option value="Railways">Railways</option>
+                            <option value="Road Transport">Road Transport</option>
+                            <option value="Energy">Energy</option>
+                            <option value="Urban Development">Urban Development</option>
+                            <option value="Water Resources">Water Resources</option>
+                            <option value="Health">Health</option>
+                            <option value="Digital Governance">Digital Governance</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Sanctioned Budget (₹ Crores):</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="1"
+                            max="5000"
+                            value={customVettingProject.budget_cr}
+                            onChange={(e) => setCustomVettingProject({ ...customVettingProject, budget_cr: Number(e.target.value) })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Target Duration (Months):</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="3"
+                            max="120"
+                            value={customVettingProject.duration_months}
+                            onChange={(e) => setCustomVettingProject({ ...customVettingProject, duration_months: Number(e.target.value) })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CONTRACTOR COLUMN */}
+                  <div className="config-box">
+                    <div className="config-box-header">
+                      <h4>2. Proposed Contractor / Bidder</h4>
+                      <div className="toggle-pill-group">
+                        <button
+                          type="button"
+                          className={vettingContractorMode === "empaneled" ? "active" : ""}
+                          onClick={() => setVettingContractorMode("empaneled")}
+                        >
+                          Empaneled Contractor
+                        </button>
+                        <button
+                          type="button"
+                          className={vettingContractorMode === "new" ? "active" : ""}
+                          onClick={() => setVettingContractorMode("new")}
+                        >
+                          + Screen New Contractor
+                        </button>
+                      </div>
+                    </div>
+
+                    {vettingContractorMode === "empaneled" ? (
+                      <div className="form-group">
+                        <label>Select Contractor from Registry:</label>
+                        <select
+                          className="form-control"
+                          value={vettingContractorId}
+                          onChange={(e) => setVettingContractorId(Number(e.target.value))}
+                        >
+                          {contractors.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} ({c.category} • Status: {c.status} • Max: {money(c.max_project_budget_handled)})
+                            </option>
+                          ))}
+                        </select>
+                        {(() => {
+                          const c = contractors.find((x) => x.id === vettingContractorId) || contractors[0];
+                          return (
+                            <div className="meta-hint">
+                              <span>Max Past Job: <strong>{money(c.max_project_budget_handled)}</strong></span>
+                              <span>Shell Risk: <strong>{c.shell_risk_score}/100</strong></span>
+                              <span>Ghost Invoices: <strong style={{ color: c.ghost_billing_flags > 0 ? "#ef4444" : "#10b981" }}>{c.ghost_billing_flags}</strong></span>
+                              <span>Status: <strong className={`status-pill pill-${c.status.toLowerCase()}`}>{c.status}</strong></span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="form-grid-2">
+                        <div className="form-group">
+                          <label>Contractor Company Name:</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={customVettingContractor.name}
+                            onChange={(e) => setCustomVettingContractor({ ...customVettingContractor, name: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Category / Empanelment Tier:</label>
+                          <select
+                            className="form-control"
+                            value={customVettingContractor.category}
+                            onChange={(e) => setCustomVettingContractor({ ...customVettingContractor, category: e.target.value })}
+                          >
+                            <option value="Tier-1">Tier-1 (National Major)</option>
+                            <option value="Tier-2">Tier-2 (Regional Prime)</option>
+                            <option value="Tier-3">Tier-3 (Sub-Contractor / Small)</option>
+                            <option value="New">Unregistered / New Bidder</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Max Past Project Handled (₹ Cr):</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="1"
+                            value={customVettingContractor.max_handled_cr}
+                            onChange={(e) => setCustomVettingContractor({ ...customVettingContractor, max_handled_cr: Number(e.target.value) })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>On-Time Delivery Rate (%):</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="0"
+                            max="100"
+                            value={customVettingContractor.delivery_rate}
+                            onChange={(e) => setCustomVettingContractor({ ...customVettingContractor, delivery_rate: Number(e.target.value) })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Ghost-Billing / Fake Invoice Flags:</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="0"
+                            max="10"
+                            value={customVettingContractor.ghost_flags}
+                            onChange={(e) => setCustomVettingContractor({ ...customVettingContractor, ghost_flags: Number(e.target.value) })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Shell Entity Risk Score (0-100):</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            min="0"
+                            max="100"
+                            value={customVettingContractor.shell_risk}
+                            onChange={(e) => setCustomVettingContractor({ ...customVettingContractor, shell_risk: Number(e.target.value) })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="simulator-action-row">
+                  <button
+                    type="button"
+                    className="btn-primary run-vetting-btn"
+                    onClick={() => handleRunVettingAnalysis()}
+                    disabled={isEvaluatingContractor}
+                  >
+                    {isEvaluatingContractor ? "Evaluating Multi-Factor Risk..." : "⚡ Run AI Fraud & Tender Eligibility Assessment"}
+                  </button>
+                </div>
+              </div>
+
+              {/* VERDICT & DUE DILIGENCE ANALYSIS RESULT */}
+              {vettingResult && (
+                <div className="vetting-result-section card">
+                  {/* TOP VERDICT BANNER */}
+                  <div className={`verdict-banner ${vettingResult.verdict_class}`}>
+                    <div className="verdict-banner-header">
+                      <span className="verdict-tag-pill">{vettingResult.verdict_badge}</span>
+                      <div className="verdict-meta-badges">
+                        <span>Project Outlay: <strong>₹{vettingResult.project_budget_cr} Cr</strong></span>
+                        <span>Contractor Max Past Scale: <strong>₹{vettingResult.max_handled_cr} Cr</strong></span>
+                        <span>Capacity Scale: <strong>{vettingResult.budget_scale_ratio}x</strong></span>
+                      </div>
+                    </div>
+                    <p className="verdict-summary-text">{vettingResult.verdict_summary}</p>
+                  </div>
+
+                  {/* 4 CORE METRIC GAUGES */}
+                  <div className="vetting-score-row">
+                    <div className="vetting-gauge-card">
+                      <span className="gauge-title">Overall Eligibility Score</span>
+                      <strong className={`gauge-value ${vettingResult.verdict.toLowerCase()}`}>
+                        {vettingResult.eligibility_score} / 100
+                      </strong>
+                      <div className="mini-meter">
+                        <div
+                          className={`mini-meter-fill ${vettingResult.verdict.toLowerCase()}`}
+                          style={{ width: `${vettingResult.eligibility_score}%` }}
+                        />
+                      </div>
+                      <small>Benchmark: ≥ 80 Approved, 55-79 Conditional, &lt;55 Disqualified</small>
+                    </div>
+
+                    <div className="vetting-gauge-card">
+                      <span className="gauge-title">Fraud Risk Probability</span>
+                      <strong className="gauge-value" style={{ color: vettingResult.fraud_risk_score > 30 ? "#ef4444" : "#10b981" }}>
+                        {vettingResult.fraud_risk_score}%
+                      </strong>
+                      <div className="mini-meter">
+                        <div
+                          className="mini-meter-fill"
+                          style={{
+                            width: `${vettingResult.fraud_risk_score}%`,
+                            background: vettingResult.fraud_risk_score > 30 ? "#ef4444" : "#10b981",
+                          }}
+                        />
+                      </div>
+                      <small>Ensemble ML model probability of default or ghost billing</small>
+                    </div>
+
+                    <div className="vetting-gauge-card">
+                      <span className="gauge-title">Scale Capacity Fit</span>
+                      <strong className="gauge-value" style={{ color: vettingResult.budget_scale_ratio > 1.6 ? "#f59e0b" : "#10b981" }}>
+                        {vettingResult.budget_scale_ratio}x Scale
+                      </strong>
+                      <div className="mini-meter">
+                        <div
+                          className="mini-meter-fill"
+                          style={{
+                            width: `${Math.min(100, (1 / Math.max(0.5, vettingResult.budget_scale_ratio)) * 100)}%`,
+                            background: vettingResult.budget_scale_ratio > 2.0 ? "#ef4444" : vettingResult.budget_scale_ratio > 1.2 ? "#f59e0b" : "#10b981",
+                          }}
+                        />
+                      </div>
+                      <small>{vettingResult.budget_scale_ratio > 2.0 ? "Severe Capacity Mismatch (Over-leverage)" : "Within Historical Operational Envelope"}</small>
+                    </div>
+
+                    <div className="vetting-gauge-card">
+                      <span className="gauge-title">Ghost-Billing Irregularities</span>
+                      <strong className="gauge-value" style={{ color: (vettingResult.historical_metrics?.ghost_billing_flags || 0) > 0 ? "#ef4444" : "#10b981" }}>
+                        {vettingResult.historical_metrics?.ghost_billing_flags || 0} Flags
+                      </strong>
+                      <div className="mini-meter">
+                        <div
+                          className="mini-meter-fill"
+                          style={{
+                            width: `${Math.min(100, (vettingResult.historical_metrics?.ghost_billing_flags || 0) * 25)}%`,
+                            background: "#ef4444",
+                          }}
+                        />
+                      </div>
+                      <small>{(vettingResult.historical_metrics?.ghost_billing_flags || 0) > 0 ? "Documented Fake Invoices / Sub-letting" : "Zero Irregularities Reported"}</small>
+                    </div>
+                  </div>
+
+                  {/* 4 COMPONENT BREAKDOWN BARS */}
+                  <div className="component-breakdown-box">
+                    <h4>Component Due Diligence Scores:</h4>
+                    <div className="component-bars-grid">
+                      <div>
+                        <div className="comp-bar-head">
+                          <span>Financial Integrity & Billing Legitimacy (35%)</span>
+                          <strong>{vettingResult.component_scores?.financial_integrity}/100</strong>
+                        </div>
+                        <div className="meter-track">
+                          <div
+                            className="meter-fill"
+                            style={{
+                              width: `${vettingResult.component_scores?.financial_integrity}%`,
+                              background: vettingResult.component_scores?.financial_integrity >= 80 ? "#10b981" : "#ef4444",
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="comp-bar-head">
+                          <span>Historical Delivery & Schedule Reliability (30%)</span>
+                          <strong>{vettingResult.component_scores?.historical_delivery}/100</strong>
+                        </div>
+                        <div className="meter-track">
+                          <div
+                            className="meter-fill"
+                            style={{
+                              width: `${vettingResult.component_scores?.historical_delivery}%`,
+                              background: vettingResult.component_scores?.historical_delivery >= 80 ? "#10b981" : "#f59e0b",
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="comp-bar-head">
+                          <span>Scale & Capacity Match (20%)</span>
+                          <strong>{vettingResult.component_scores?.scale_capacity}/100</strong>
+                        </div>
+                        <div className="meter-track">
+                          <div
+                            className="meter-fill"
+                            style={{
+                              width: `${vettingResult.component_scores?.scale_capacity}%`,
+                              background: vettingResult.component_scores?.scale_capacity >= 80 ? "#10b981" : "#f59e0b",
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="comp-bar-head">
+                          <span>Regulatory & Legal Standing (15%)</span>
+                          <strong>{vettingResult.component_scores?.regulatory_compliance}/100</strong>
+                        </div>
+                        <div className="meter-track">
+                          <div
+                            className="meter-fill"
+                            style={{
+                              width: `${vettingResult.component_scores?.regulatory_compliance}%`,
+                              background: vettingResult.component_scores?.regulatory_compliance >= 80 ? "#10b981" : "#ef4444",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SIDE-BY-SIDE: EXPLAINABLE DRIVERS & SAFEGUARDS */}
+                  <div className="vetting-details-split">
+                    {/* RISK DRIVERS */}
+                    <div className="drivers-card">
+                      <h3>🧠 Explainable AI Feature Drivers (SHAP Attribution)</h3>
+                      <div className="driver-list">
+                        {vettingResult.risk_drivers && vettingResult.risk_drivers.map((drv, idx) => (
+                          <div key={idx} className={`driver-item ${drv.type}`}>
+                            <div className="driver-header">
+                              <span className="driver-name">{drv.factor}</span>
+                              <span className={`driver-impact ${drv.type}`}>{drv.impact}</span>
+                            </div>
+                            <p className="driver-desc">{drv.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* MANDATED PROCUREMENT SAFEGUARDS */}
+                    <div className="safeguards-card">
+                      <h3>📜 Mandated MoSPI Procurement Safeguards</h3>
+                      <ul className="safeguards-list">
+                        {vettingResult.safeguards && vettingResult.safeguards.map((sg, idx) => (
+                          <li key={idx} className="safeguard-item">
+                            <span className="sg-bullet">§</span>
+                            <div>
+                              <strong>Clause {idx + 1}:</strong> {sg}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="safeguard-footer">
+                        <small>Complies with MoSPI Public Procurement (GFR Rule 175) due-diligence provisions.</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CONTRACTOR DIRECTORY TABLE */}
+              <div className="card contractor-directory-card">
+                <div className="directory-header">
+                  <div>
+                    <h2>📋 Empaneled Contractor Track Record Registry</h2>
+                    <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>
+                      Historical audit performance, cost overruns, delivery rates, and active fraud flags across all empaneled vendors.
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Search contractors..."
+                      value={contractorSearch}
+                      onChange={(e) => setContractorSearch(e.target.value)}
+                      style={{ width: "220px" }}
+                    />
+                    <div className="toggle-pill-group">
+                      {["ALL", "APPROVED", "WATCHLIST", "DISQUALIFIED"].map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          className={contractorFilter === st ? "active" : ""}
+                          onClick={() => setContractorFilter(st)}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Contractor Name & PAN</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Delivery Rate</th>
+                        <th>Avg Cost Overrun</th>
+                        <th>Avg Delay</th>
+                        <th>Ghost Invoices</th>
+                        <th>Shell Risk</th>
+                        <th>Max Job Handled</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contractors
+                        .filter((c) => {
+                          if (contractorFilter !== "ALL" && c.status !== contractorFilter) return false;
+                          if (contractorSearch) {
+                            const q = contractorSearch.toLowerCase();
+                            return c.name.toLowerCase().includes(q) || (c.pan_cin && c.pan_cin.toLowerCase().includes(q));
+                          }
+                          return true;
+                        })
+                        .map((c) => (
+                          <tr key={c.id}>
+                            <td>
+                              <strong>{c.name}</strong>
+                              <small style={{ display: "block", color: "#64748b" }}>
+                                CIN/PAN: {c.pan_cin || "N/A"} • Est. {c.incorporation_year}
+                              </small>
+                            </td>
+                            <td><span className="badge-tier">{c.category}</span></td>
+                            <td>
+                              <span className={`status-pill pill-${c.status.toLowerCase()}`}>
+                                {c.status}
+                              </span>
+                            </td>
+                            <td>
+                              <strong>{((c.on_time_delivery_rate ?? 0.85) * 100).toFixed(0)}%</strong>
+                            </td>
+                            <td style={{ color: (c.avg_cost_overrun_pct ?? 0) > 15 ? "#ef4444" : "inherit" }}>
+                              +{(c.avg_cost_overrun_pct ?? 0).toFixed(1)}%
+                            </td>
+                            <td>{(c.avg_delay_days ?? 0).toFixed(0)} days</td>
+                            <td>
+                              <span className={`badge-ghost ${(c.ghost_billing_flags || 0) > 0 ? "danger" : "clean"}`}>
+                                {c.ghost_billing_flags || 0} flags
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ color: c.shell_risk_score > 30 ? "#ef4444" : "#10b981", fontWeight: 600 }}>
+                                {c.shell_risk_score}/100
+                              </span>
+                            </td>
+                            <td><strong>{money(c.max_project_budget_handled)}</strong></td>
+                            <td>
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  className="btn-sm btn-outline"
+                                  onClick={() => handleViewContractorDossier(c.id)}
+                                  title="Inspect full past project delivery timeline"
+                                >
+                                  📄 Dossier
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-sm btn-primary"
+                                  onClick={() => {
+                                    setVettingContractorId(c.id);
+                                    setVettingContractorMode("empaneled");
+                                    handleRunVettingAnalysis(c.id, vettingProjectId);
+                                  }}
+                                  title="Screen in Simulator"
+                                >
+                                  ⚡ Screen
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -2107,6 +2907,122 @@ export default function App() {
                 }}
               >
                 Issue Formal Alert →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          CONTRACTOR HISTORICAL PROJECT DOSSIER MODAL
+      ========================================================= */}
+      {selectedContractorDossier && (
+        <div className="modal-overlay" onClick={() => setSelectedContractorDossier(null)}>
+          <div className="modal-content dossier-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h2>📋 Contractor Audit Dossier & Historical Projects</h2>
+                <p style={{ margin: 0, color: "#64748b" }}>
+                  Verified delivery track record across Central & State ministry packages
+                </p>
+              </div>
+              <button className="close-btn" onClick={() => setSelectedContractorDossier(null)}>
+                ×
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="dossier-summary-bar">
+                <div>
+                  <span className="meta-label">Contractor Name</span>
+                  <h3 style={{ margin: "4px 0" }}>{selectedContractorDossier.name}</h3>
+                  <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                    CIN/PAN: <strong>{selectedContractorDossier.pan_cin || "AAACL1234F"}</strong> | Category: <strong>{selectedContractorDossier.category}</strong>
+                  </span>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span className={`status-pill pill-${(selectedContractorDossier.status || "APPROVED").toLowerCase()}`} style={{ fontSize: "0.95rem" }}>
+                    {selectedContractorDossier.status}
+                  </span>
+                  <div style={{ marginTop: "4px", fontSize: "0.85rem", color: "#64748b" }}>
+                    Max Handled: <strong>{money(selectedContractorDossier.max_project_budget_handled)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <h4 style={{ marginTop: "20px", marginBottom: "10px" }}>Historical Infrastructure Project Deliveries:</h4>
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Project Title</th>
+                      <th>Ministry</th>
+                      <th>Sanctioned Outlay</th>
+                      <th>Actual Final Cost</th>
+                      <th>Cost Overrun</th>
+                      <th>Delay Days</th>
+                      <th>Status</th>
+                      <th>Audit Flags</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedContractorDossier.histories && selectedContractorDossier.histories.length > 0 ? (
+                      selectedContractorDossier.histories.map((h) => (
+                        <tr key={h.id}>
+                          <td><strong>{h.project_name}</strong> ({h.year_completed})</td>
+                          <td>{h.ministry || "Infrastructure"}</td>
+                          <td>{money(h.sanctioned_budget)}</td>
+                          <td>{money(h.actual_cost)}</td>
+                          <td style={{ color: h.cost_overrun_pct > 10 ? "#ef4444" : "#10b981", fontWeight: 600 }}>
+                            +{h.cost_overrun_pct}%
+                          </td>
+                          <td>{h.delay_days} days</td>
+                          <td>
+                            <span className={`status-tag ${h.completion_status === "COMPLETED" ? "on-track" : "critical"}`}>
+                              {h.completion_status}
+                            </span>
+                          </td>
+                          <td>
+                            {h.audit_irregularity_flag ? (
+                              <span className="badge-ghost danger">⚠️ Irregularity Logged</span>
+                            ) : (
+                              <span className="badge-ghost clean">✓ Clean Audit</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: "center", padding: "20px" }}>
+                          No historical projects archived yet for this contractor.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => setSelectedContractorDossier(null)}
+              >
+                Close Dossier
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setVettingContractorId(selectedContractorDossier.id);
+                  setVettingContractorMode("empaneled");
+                  setActiveNav("Fraud & Vetting");
+                  setSelectedContractorDossier(null);
+                  handleRunVettingAnalysis(selectedContractorDossier.id, vettingProjectId);
+                }}
+              >
+                ⚡ Evaluate in Tender Screening Simulator →
               </button>
             </div>
           </div>
