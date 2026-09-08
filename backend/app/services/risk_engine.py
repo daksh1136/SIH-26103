@@ -1,366 +1,260 @@
 from datetime import date
-from typing import Dict, Any
 
 
-def clamp(value: float, minimum: float = 0, maximum: float = 100) -> float:
-    return max(minimum, min(value, maximum))
-
-
-def calculate_schedule_risk(project) -> float:
+def calculate_risk(project):
     """
-    Measures schedule risk using physical progress,
-    project timeline and project status.
+    Calculate an explainable risk score for a project.
+
+    Returns:
+        {
+            "risk_score": 0-100,
+            "risk_level": "LOW|MEDIUM|HIGH|CRITICAL",
+            "risk_factors": [],
+            "recommendation": ""
+        }
     """
+
+    score = 0
+    factors = []
+
+    # --------------------------------------------------
+    # PROJECT DATA
+    # --------------------------------------------------
+
+    physical = float(project.physical_progress or 0)
+    financial = float(project.financial_progress or 0)
+
+    approved_budget = float(project.approved_budget or 0)
+    expenditure = float(project.expenditure or 0)
+
+    planned_completion = project.planned_completion
+
+    # --------------------------------------------------
+    # 1. PHYSICAL VS FINANCIAL VARIANCE
+    # --------------------------------------------------
+
+    variance = financial - physical
+
+    if variance >= 30:
+        score += 30
+
+        factors.append(
+            f"Financial progress is {variance:.1f}% ahead "
+            f"of physical progress"
+        )
+
+    elif variance >= 20:
+        score += 20
+
+        factors.append(
+            f"Financial progress is {variance:.1f}% ahead "
+            f"of physical progress"
+        )
+
+    elif variance >= 10:
+        score += 10
+
+        factors.append(
+            f"Financial progress is {variance:.1f}% ahead "
+            f"of physical progress"
+        )
+
+    # --------------------------------------------------
+    # 2. BUDGET UTILIZATION
+    # --------------------------------------------------
+
+    budget_utilization = 0
+
+    if approved_budget > 0:
+        budget_utilization = (
+            expenditure / approved_budget
+        ) * 100
+
+    if budget_utilization >= 95 and physical < 70:
+
+        score += 25
+
+        factors.append(
+            f"{budget_utilization:.1f}% of approved "
+            f"budget consumed"
+        )
+
+    elif budget_utilization >= 85 and physical < 60:
+
+        score += 20
+
+        factors.append(
+            f"{budget_utilization:.1f}% of approved "
+            f"budget consumed"
+        )
+
+    elif budget_utilization >= 75 and physical < 50:
+
+        score += 12
+
+        factors.append(
+            f"{budget_utilization:.1f}% of approved "
+            f"budget consumed"
+        )
+
+    # --------------------------------------------------
+    # 3. LOW PHYSICAL PROGRESS
+    # --------------------------------------------------
+
+    if physical < 30:
+
+        score += 20
+
+        factors.append(
+            "Physical progress is below 30%"
+        )
+
+    elif physical < 45:
+
+        score += 12
+
+        factors.append(
+            "Physical progress is below 45%"
+        )
+
+    elif physical < 55:
+
+        score += 6
+
+        factors.append(
+            "Physical progress is below 55%"
+        )
+
+    # --------------------------------------------------
+    # 4. COMPLETION DATE
+    # --------------------------------------------------
 
     today = date.today()
 
-    start_date = project.start_date
-    completion_date = project.planned_completion
+    if planned_completion:
 
-    total_days = max(
-        (completion_date - start_date).days,
-        1,
-    )
+        days_remaining = (
+            planned_completion - today
+        ).days
 
-    elapsed_days = max(
-        (today - start_date).days,
-        0,
-    )
+        # Project deadline already passed
+        if days_remaining < 0:
 
-    time_progress = clamp(
-        (elapsed_days / total_days) * 100
-    )
+            score += 30
 
-    physical_progress = clamp(
-        float(project.physical_progress or 0)
-    )
+            factors.append(
+                "Planned completion date has passed"
+            )
 
-    progress_gap = max(
-        time_progress - physical_progress,
-        0,
-    )
+        # Deadline within 30 days
+        elif days_remaining <= 30 and physical < 80:
 
-    risk = progress_gap * 1.2
+            score += 25
 
-    if project.status == "AT_RISK":
-        risk += 20
+            factors.append(
+                "Project is within 30 days of "
+                "planned completion"
+            )
 
-    elif project.status == "DELAYED":
-        risk += 35
+        # Deadline within 90 days
+        elif days_remaining <= 90 and physical < 60:
 
-    elif project.status == "CRITICAL":
-        risk += 50
+            score += 15
 
-    return clamp(risk)
+            factors.append(
+                "Project is within 90 days of "
+                "planned completion"
+            )
 
+    # --------------------------------------------------
+    # 5. EXISTING PROJECT STATUS
+    # --------------------------------------------------
 
-def calculate_financial_risk(project) -> float:
-    """
-    Detects financial stress by comparing expenditure,
-    released funds and physical progress.
-    """
-
-    released = float(
-        project.released_funds or 0
-    )
-
-    expenditure = float(
-        project.expenditure or 0
-    )
-
-    physical_progress = clamp(
-        float(project.physical_progress or 0)
-    )
-
-    if released <= 0:
-        return 0
-
-    expenditure_ratio = (
-        expenditure / released
-    ) * 100
-
-    spending_gap = max(
-        expenditure_ratio - physical_progress,
-        0,
-    )
-
-    risk = spending_gap * 1.5
-
-    if expenditure > released:
-        risk += 35
-
-    return clamp(risk)
-
-
-def calculate_progress_risk(project) -> float:
-    """
-    Measures risk from mismatch between
-    physical and financial progress.
-    """
-
-    physical = clamp(
-        float(project.physical_progress or 0)
-    )
-
-    financial = clamp(
-        float(project.financial_progress or 0)
-    )
-
-    gap = max(
-        financial - physical,
-        0,
-    )
-
-    return clamp(
-        gap * 1.4
-    )
-
-
-def calculate_budget_risk(project) -> float:
-    """
-    Measures budget utilization and remaining
-    financial capacity.
-    """
-
-    approved = float(
-        project.approved_budget or 0
-    )
-
-    expenditure = float(
-        project.expenditure or 0
-    )
-
-    if approved <= 0:
-        return 0
-
-    utilization = (
-        expenditure / approved
-    ) * 100
-
-    physical = clamp(
-        float(project.physical_progress or 0)
-    )
-
-    # Spending significantly ahead of physical progress
-    gap = max(
-        utilization - physical,
-        0,
-    )
-
-    return clamp(
-        gap * 1.2
-    )
-
-
-def calculate_risk(project) -> Dict[str, Any]:
-    """
-    Main ProjectPulse risk calculation.
-
-    Produces:
-    - overall risk score
-    - risk level
-    - contributing factors
-    - warning
-    - recommendation
-    """
-
-    schedule_risk = calculate_schedule_risk(
-        project
-    )
-
-    financial_risk = calculate_financial_risk(
-        project
-    )
-
-    progress_risk = calculate_progress_risk(
-        project
-    )
-
-    budget_risk = calculate_budget_risk(
-        project
-    )
-
-
-    # Weighted model
-    risk_score = (
-        schedule_risk * 0.35
-        + financial_risk * 0.25
-        + progress_risk * 0.25
-        + budget_risk * 0.15
-    )
-
-    risk_score = round(
-        clamp(risk_score),
-        1,
-    )
-
-
-    # Explicit status escalation
-    status = (
+    existing_status = str(
         project.status or ""
     ).upper()
 
-    if status == "CRITICAL":
-        risk_score = max(
-            risk_score,
-            75,
-        )
+    if existing_status == "CRITICAL":
 
-    elif status == "DELAYED":
-        risk_score = max(
-            risk_score,
-            60,
-        )
+        score += 15
 
-    elif status == "AT_RISK":
-        risk_score = max(
-            risk_score,
-            50,
-        )
+    elif existing_status == "DELAYED":
 
+        score += 12
 
-    # Risk classification
-    if risk_score >= 75:
+    elif existing_status == "AT_RISK":
+
+        score += 7
+
+    # --------------------------------------------------
+    # CAP SCORE
+    # --------------------------------------------------
+
+    score = min(score, 100)
+
+    # --------------------------------------------------
+    # RISK LEVEL
+    # --------------------------------------------------
+
+    if score >= 75:
+
         risk_level = "CRITICAL"
 
-    elif risk_score >= 50:
+    elif score >= 50:
+
         risk_level = "HIGH"
 
-    elif risk_score >= 25:
-        risk_level = "MODERATE"
+    elif score >= 25:
+
+        risk_level = "MEDIUM"
 
     else:
+
         risk_level = "LOW"
 
-
-    factors = [
-        {
-            "name": "Schedule Risk",
-            "score": round(
-                schedule_risk,
-                1,
-            ),
-            "weight": 35,
-        },
-        {
-            "name": "Financial Risk",
-            "score": round(
-                financial_risk,
-                1,
-            ),
-            "weight": 25,
-        },
-        {
-            "name": "Progress Risk",
-            "score": round(
-                progress_risk,
-                1,
-            ),
-            "weight": 25,
-        },
-        {
-            "name": "Budget Risk",
-            "score": round(
-                budget_risk,
-                1,
-            ),
-            "weight": 15,
-        },
-    ]
-
-
-    reasons = []
-
-
-    if schedule_risk >= 50:
-        reasons.append(
-            "Project progress is significantly behind the planned schedule."
-        )
-
-    elif schedule_risk >= 25:
-        reasons.append(
-            "Project progress shows a schedule deviation."
-        )
-
-
-    if financial_risk >= 50:
-        reasons.append(
-            "Expenditure is significantly ahead of physical progress."
-        )
-
-    elif financial_risk >= 25:
-        reasons.append(
-            "Financial utilization requires monitoring."
-        )
-
-
-    if progress_risk >= 40:
-        reasons.append(
-            "Financial and physical progress are substantially misaligned."
-        )
-
-
-    if budget_risk >= 40:
-        reasons.append(
-            "Budget utilization is high compared with project completion."
-        )
-
-
-    if status == "CRITICAL":
-        reasons.append(
-            "Project is currently marked CRITICAL."
-        )
-
-    elif status == "DELAYED":
-        reasons.append(
-            "Project is currently marked DELAYED."
-        )
-
-    elif status == "AT_RISK":
-        reasons.append(
-            "Project is currently marked AT_RISK."
-        )
-
-
-    if not reasons:
-        reasons.append(
-            "Current project indicators are within acceptable monitoring limits."
-        )
-
-
-    warning = risk_score >= 50
-
+    # --------------------------------------------------
+    # RECOMMENDATION
+    # --------------------------------------------------
 
     if risk_level == "CRITICAL":
+
         recommendation = (
-            "Immediate senior-level intervention is recommended. "
-            "Review schedule, expenditure and implementation bottlenecks."
+            "Immediate intervention required. "
+            "Review expenditure, schedule and "
+            "implementation progress with the "
+            "project authority."
         )
 
     elif risk_level == "HIGH":
+
         recommendation = (
-            "Enhanced monitoring is recommended. "
-            "Review schedule deviation and financial utilization."
+            "Escalate for closer monitoring. "
+            "Review schedule recovery actions "
+            "and expenditure."
         )
 
-    elif risk_level == "MODERATE":
+    elif risk_level == "MEDIUM":
+
         recommendation = (
-            "Continue close monitoring and address emerging "
-            "schedule or financial deviations."
+            "Increase monitoring frequency and "
+            "verify implementation progress "
+            "against expenditure."
         )
 
     else:
+
         recommendation = (
-            "Project indicators are currently stable. "
-            "Continue routine monitoring."
+            "Project is currently progressing "
+            "within acceptable risk parameters."
         )
 
+    # --------------------------------------------------
+    # RETURN RESULT
+    # --------------------------------------------------
 
     return {
-        "risk_score": risk_score,
+        "risk_score": round(score, 1),
         "risk_level": risk_level,
-        "warning": warning,
-        "factors": factors,
-        "reasons": reasons,
+        "risk_factors": factors,
         "recommendation": recommendation,
     }
