@@ -779,7 +779,7 @@ export function answerProjectQuery(query, projects) {
   const avgPhys = (projects.reduce((acc, p) => acc + (p.physical_progress || 0), 0) / projects.length).toFixed(1);
   const criticalCount = projects.filter((p) => p.status === "CRITICAL").length;
 
-  return {
+    return {
     type: "PORTFOLIO_OVERVIEW",
     title: "National Infrastructure Portfolio Summary",
     response: `### 📊 MoSPI Executive Portfolio Overview\n\n` +
@@ -790,3 +790,110 @@ export function answerProjectQuery(query, projects) {
       `*You can ask specific questions like "Why is Project 8 high risk?", "Which projects have anomalies?", or "High risk projects in Assam".*`,
   };
 }
+
+// =========================================================================
+// BACKEND API INTEGRATION BRIDGE (FastAPI + SQLite DB on Port 8000)
+// =========================================================================
+
+export const API_BASE_URL = "http://localhost:8000/api";
+
+/**
+ * Check if the FastAPI backend is running and healthy
+ */
+export async function checkBackendHealth() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1800);
+    const res = await fetch(`${API_BASE_URL}/health`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.status === "healthy" || data.status === "degraded";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch projects from live backend database
+ */
+export async function fetchProjectsFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/projects`);
+    if (!res.ok) throw new Error("Failed to fetch projects");
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    return data.map((p) => ({
+      ...p,
+      description: p.description || `${p.name} under ${p.department} located in ${p.location}.`,
+      expected_progress: p.expected_progress || Math.min(100, (p.physical_progress || 50) + 5),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch milestones from live backend database
+ */
+export async function fetchMilestonesFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/milestones`);
+    if (!res.ok) throw new Error("Failed to fetch milestones");
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    return data.map((m) => ({
+      id: m.id,
+      project_id: m.project_id,
+      name: m.name,
+      due_date: m.planned_date || m.planned_completion || "2026-12-31",
+      status: m.status || "UPCOMING",
+      progress: m.progress ?? (m.status === "COMPLETED" ? 100 : m.status === "OVERDUE" ? 50 : 0),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch alerts from live backend database
+ */
+export async function fetchAlertsFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/alerts`);
+    if (!res.ok) throw new Error("Failed to fetch alerts");
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    return data.map((a) => ({
+      id: a.id,
+      project_id: a.project_id,
+      project_name: a.project_name || `Project #${a.project_id}`,
+      severity: a.severity || "MEDIUM",
+      category: a.category || "PROJECT_RISK",
+      message: a.message,
+      recommendation: a.recommendation || "Review contractor billing and verify physical milestones.",
+      status: a.status || "OPEN",
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Send Chat Query to live AI assistant backend
+ */
+export async function queryAIAssistantBackend(query, projectId = null) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, project_id: projectId }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.reply;
+  } catch {
+    return null;
+  }
+}
+

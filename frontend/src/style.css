@@ -1864,6 +1864,30 @@ footer {
   gap: 14px;
 }
 
+.backend-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.backend-status-pill.online {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.backend-status-pill.offline {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
 .quick-ai-btn {
   background: #e0e7ff;
   color: #4338ca;

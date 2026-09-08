@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   INITIAL_PROJECTS,
   INITIAL_ALERTS,
@@ -9,6 +9,11 @@ import {
   detectProjectAnomalies,
   simulateWhatIf,
   answerProjectQuery,
+  checkBackendHealth,
+  fetchProjectsFromBackend,
+  fetchMilestonesFromBackend,
+  fetchAlertsFromBackend,
+  queryAIAssistantBackend,
 } from "./aiEngineClient";
 
 function money(value = 0) {
@@ -33,10 +38,37 @@ export default function App() {
   const [projects, setProjects] = useState(INITIAL_PROJECTS);
   const [alerts, setAlerts] = useState(INITIAL_ALERTS);
   const [milestones, setMilestones] = useState(INITIAL_MILESTONES);
+  const [backendLive, setBackendLive] = useState(false);
   const [activeNav, setActiveNav] = useState("Dashboard");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [deptFilter, setDeptFilter] = useState("ALL");
+
+  // Sync with live FastAPI backend on mount if running
+  useEffect(() => {
+    async function syncWithBackend() {
+      const isHealthy = await checkBackendHealth();
+      setBackendLive(isHealthy);
+      if (isHealthy) {
+        const [dbProjects, dbMilestones, dbAlerts] = await Promise.all([
+          fetchProjectsFromBackend(),
+          fetchMilestonesFromBackend(),
+          fetchAlertsFromBackend(),
+        ]);
+        if (dbProjects && dbProjects.length > 0) {
+          setProjects(dbProjects);
+          setWhatIfProject(dbProjects[0]);
+        }
+        if (dbMilestones && dbMilestones.length > 0) {
+          setMilestones(dbMilestones);
+        }
+        if (dbAlerts && dbAlerts.length > 0) {
+          setAlerts(dbAlerts);
+        }
+      }
+    }
+    syncWithBackend();
+  }, []);
 
   // Selected project for deep AI Risk Drawer
   const [selectedProject, setSelectedProject] = useState(null);
@@ -57,6 +89,7 @@ export default function App() {
       text: "👋 Welcome to **MoSPI ProjectPulse Assistant**! I can diagnose project risks, explain SHAP drivers, run What-If simulations, and screen for reporting anomalies. Click a suggested question below or type your query.",
     },
   ]);
+
 
   // Escalation toast
   const [toastMessage, setToastMessage] = useState("");
@@ -127,16 +160,25 @@ export default function App() {
   }, [whatIfProject, whatIfFunding, whatIfManpower, whatIfMaterials, whatIfExtension]);
 
   // Chat message send handler
-  const handleSendMessage = (textToSend = null) => {
+  const handleSendMessage = async (textToSend = null) => {
     const query = textToSend || chatInput;
     if (!query.trim()) return;
 
     const userMsg = { sender: "user", text: query };
-    const ans = answerProjectQuery(query, projects);
-    const aiMsg = { sender: "ai", text: ans.response };
-
-    setChatMessages((prev) => [...prev, userMsg, aiMsg]);
+    setChatMessages((prev) => [...prev, userMsg]);
     if (!textToSend) setChatInput("");
+
+    let replyText = null;
+    if (backendLive) {
+      replyText = await queryAIAssistantBackend(query);
+    }
+    if (!replyText) {
+      const ans = answerProjectQuery(query, projects);
+      replyText = ans.response;
+    }
+
+    const aiMsg = { sender: "ai", text: replyText };
+    setChatMessages((prev) => [...prev, aiMsg]);
   };
 
   const triggerToast = (msg) => {
@@ -263,6 +305,13 @@ export default function App() {
           </div>
 
           <div className="topbar-right">
+            <div
+              className={`backend-status-pill ${backendLive ? "online" : "offline"}`}
+              title={backendLive ? "Live API connected to FastAPI & SQLite database (Port 8000)" : "Running on standalone client intelligence engine"}
+            >
+              <span className="dot" />
+              <span>{backendLive ? "🟢 Live DB & API" : "🟡 Standalone Mode"}</span>
+            </div>
             <button className="quick-ai-btn" onClick={() => setChatOpen(true)}>
               🤖 Ask AI Assistant
             </button>

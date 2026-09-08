@@ -1,11 +1,13 @@
 from datetime import date, timedelta
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Milestone, Project
-
+from app.schemas import MilestoneResponse
 
 router = APIRouter(
     prefix="/api",
@@ -13,177 +15,81 @@ router = APIRouter(
 )
 
 
-def calculate_milestone_status(milestone):
+def calculate_milestone_status(milestone: Milestone) -> str:
     """
-    Automatically determine milestone status from
-    progress and planned completion date.
+    Determine milestone status from actual_date and planned_date.
     """
-
     today = date.today()
 
-    # Completed milestone
-    if milestone.actual_completion is not None:
+    if milestone.status and milestone.status.upper() in ("COMPLETED", "OVERDUE", "IN_PROGRESS", "UPCOMING"):
+        return milestone.status.upper()
+
+    if milestone.actual_date is not None:
         return "COMPLETED"
 
-    # 100% progress also means completed
-    if float(milestone.progress or 0) >= 100:
-        return "COMPLETED"
-
-    # Completion date has passed
-    if milestone.planned_completion < today:
+    if milestone.planned_date and milestone.planned_date < today:
         return "OVERDUE"
 
-    # Due within next 30 days
-    if milestone.planned_completion <= today + timedelta(days=30):
-        return "DUE_SOON"
-
-    # Has started
-    if float(milestone.progress or 0) > 0:
+    if milestone.planned_date and milestone.planned_date <= today + timedelta(days=30):
         return "IN_PROGRESS"
 
     return "UPCOMING"
 
 
-def milestone_response(milestone):
+def format_milestone(milestone: Milestone) -> dict:
     status = calculate_milestone_status(milestone)
+    p_date = milestone.planned_date
+    a_date = milestone.actual_date
+
+    # Progress estimation
+    if status == "COMPLETED" or a_date is not None:
+        prog = 100.0
+    elif status in ("IN_PROGRESS", "OVERDUE"):
+        prog = 50.0
+    else:
+        prog = 0.0
 
     return {
         "id": milestone.id,
         "project_id": milestone.project_id,
         "name": milestone.name,
-        "planned_start": (
-            milestone.planned_start.isoformat()
-            if milestone.planned_start
-            else None
-        ),
-        "planned_completion": (
-            milestone.planned_completion.isoformat()
-            if milestone.planned_completion
-            else None
-        ),
-        "actual_completion": (
-            milestone.actual_completion.isoformat()
-            if milestone.actual_completion
-            else None
-        ),
-        "progress": float(milestone.progress or 0),
+        "planned_date": p_date,
+        "actual_date": a_date,
         "status": status,
+        "planned_start": p_date,
+        "planned_completion": p_date,
+        "actual_completion": a_date,
+        "progress": prog,
     }
 
 
-# ==========================================================
-# ALL MILESTONES
-# ==========================================================
-
-@router.get("/milestones")
+@router.get("/milestones", response_model=List[MilestoneResponse])
 def get_milestones(
+    status: Optional[str] = Query(default=None),
     db: Session = Depends(get_db)
 ):
-    milestones = (
-        db.query(Milestone)
-        .order_by(Milestone.planned_completion.asc())
-        .all()
-    )
+    query = db.query(Milestone)
 
-    return [
-        milestone_response(milestone)
-        for milestone in milestones
-    ]
+    if status:
+        query = query.filter(func.upper(Milestone.status) == status.upper())
+
+    milestones = query.order_by(Milestone.planned_date.asc()).all()
+    return [format_milestone(m) for m in milestones]
 
 
-# ==========================================================
-# PROJECT MILESTONES
-# ==========================================================
-
-@router.get("/projects/{project_id}/milestones")
+@router.get("/projects/{project_id}/milestones", response_model=List[MilestoneResponse])
 def get_project_milestones(
-    project_id: int,
+    project_id: int = Path(..., gt=0),
     db: Session = Depends(get_db)
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id)
-        .first()
-    )
-
+    project = db.query(Project.id).filter(Project.id == project_id).first()
     if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found"
-        )
+        raise HTTPException(status_code=404, detail="Project not found")
 
     milestones = (
         db.query(Milestone)
         .filter(Milestone.project_id == project_id)
-        .order_by(Milestone.planned_completion.asc())
+        .order_by(Milestone.planned_date.asc())
         .all()
     )
-
-    return [
-        milestone_response(milestone)
-        for milestone in milestones
-    ]
-
-
-# ==========================================================
-# MILESTONE SUMMARY
-# ==========================================================
-
-@router.get("/milestones/summary")
-def get_milestone_summary(
-    db: Session = Depends(get_db)
-):
-    milestones = db.query(Milestone).all()
-
-    statuses = {
-        "total": len(milestones),
-        "completed": 0,
-        "in_progress": 0,
-        "upcoming": 0,
-        "due_soon": 0,
-        "overdue": 0,
-    }
-
-    for milestone in milestones:
-        status = calculate_milestone_status(milestone)
-
-        if status == "COMPLETED":
-            statuses["completed"] += 1
-
-        elif status == "IN_PROGRESS":
-            statuses["in_progress"] += 1
-
-        elif status == "UPCOMING":
-            statuses["upcoming"] += 1
-
-        elif status == "DUE_SOON":
-            statuses["due_soon"] += 1
-
-        elif status == "OVERDUE":
-            statuses["overdue"] += 1
-
-    return statuses
-
-
-# ==========================================================
-# SINGLE MILESTONE
-# ==========================================================
-
-@router.get("/milestones/{milestone_id}")
-def get_milestone(
-    milestone_id: int,
-    db: Session = Depends(get_db)
-):
-    milestone = (
-        db.query(Milestone)
-        .filter(Milestone.id == milestone_id)
-        .first()
-    )
-
-    if not milestone:
-        raise HTTPException(
-            status_code=404,
-            detail="Milestone not found"
-        )
-
-    return milestone_response(milestone)
+    return [format_milestone(m) for m in milestones]
