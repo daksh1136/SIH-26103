@@ -1,0 +1,15 @@
+# Virtual environments
+venv/
+ai_engine/venv/
+.venv/
+env/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS metadata
+.DS_Store
+Thumbs.db

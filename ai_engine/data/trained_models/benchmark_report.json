@@ -1,0 +1,74 @@
+{
+  "best_model_name": "Random Forest",
+  "best_f1_score": 0.5517,
+  "tournament_results": {
+    "Gradient Boosting (GBM)": {
+      "accuracy": 0.66,
+      "precision": 0.6136,
+      "recall": 0.4426,
+      "f1_score": 0.5143,
+      "roc_auc": 0.7057
+    },
+    "Random Forest": {
+      "accuracy": 0.6967,
+      "precision": 0.6914,
+      "recall": 0.459,
+      "f1_score": 0.5517,
+      "roc_auc": 0.7233
+    },
+    "Logistic Regression (Baseline)": {
+      "accuracy": 0.6333,
+      "precision": 0.5714,
+      "recall": 0.3934,
+      "f1_score": 0.466,
+      "roc_auc": 0.7156
+    }
+  },
+  "feature_importances": {
+    "planned_duration_days": 0.0157,
+    "elapsed_duration_days": 0.0463,
+    "physical_progress": 0.0558,
+    "expected_progress": 0.0456,
+    "financial_progress": 0.0368,
+    "approved_budget": 0.0466,
+    "expenditure": 0.0421,
+    "milestones_delayed": 0.0467,
+    "milestones_total": 0.0143,
+    "resource_availability": 0.0493,
+    "contractor_performance": 0.0623,
+    "material_availability": 0.0469,
+    "previous_delays": 0.0168,
+    "schedule_slippage_gap": 0.1658,
+    "financial_physical_gap": 0.0463,
+    "budget_utilization_pct": 0.0387,
+    "time_elapsed_ratio": 0.0529,
+    "milestone_slippage_rate": 0.0632,
+    "composite_resource_index": 0.0662,
+    "burn_rate_vs_progress_ratio": 0.0414
+  },
+  "num_features": 20,
+  "feature_names": [
+    "planned_duration_days",
+    "elapsed_duration_days",
+    "physical_progress",
+    "expected_progress",
+    "financial_progress",
+    "approved_budget",
+    "expenditure",
+    "milestones_delayed",
+    "milestones_total",
+    "resource_availability",
+    "contractor_performance",
+    "material_availability",
+    "previous_delays",
+    "schedule_slippage_gap",
+    "financial_physical_gap",
+    "budget_utilization_pct",
+    "time_elapsed_ratio",
+    "milestone_slippage_rate",
+    "composite_resource_index",
+    "burn_rate_vs_progress_ratio"
+  ],
+  "training_samples": 1200,
+  "test_samples": 300
+}
