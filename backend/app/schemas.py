@@ -256,6 +256,52 @@ class ChatResponse(BaseModel):
 
 
 # =========================================================
+# AI FEEDBACK & CONTINUOUS LEARNING LOOP (FEATURE 10)
+# =========================================================
+
+class LearningMetricsResponse(BaseModel):
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+    roc_auc: float
+    total_training_samples: int
+    active_model_version: str
+    last_retrained_at: str
+    drift_status: str
+    drift_p_value: float
+
+
+class HistoricalPredictionItem(BaseModel):
+    id: int
+    project_id: int
+    project_name: str
+    predicted_risk_level: str
+    predicted_delay_days: int
+    actual_outcome_status: str
+    actual_delay_days: int
+    variance_days: int
+    accuracy_verdict: str
+    logged_date: str
+
+
+class FeedbackRequest(BaseModel):
+    project_id: int
+    actual_status: str
+    actual_delay_days: int
+    field_notes: str
+    officer_name: str
+
+
+class FeedbackResponse(BaseModel):
+    status: str
+    message: str
+    updated_sample_count: int
+    model_version: str
+    incremental_loss: float
+
+
+# =========================================================
 # GENERIC
 # =========================================================
 

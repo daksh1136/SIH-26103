@@ -3825,3 +3825,84 @@ footer {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ===================================================
+   VIEW 10: AI FEEDBACK & CONTINUOUS LEARNING LOOP
+   =================================================== */
+.learning-view {
+  padding-bottom: 40px;
+}
+
+.badge-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.badge-accuracy {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.learning-split {
+  display: grid;
+  grid-template-columns: 1.1fr 1.3fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.learning-form-card,
+.audit-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 24px;
+}
+
+.learning-form-card h3,
+.audit-card h3 {
+  margin-top: 0;
+  margin-bottom: 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.learning-form-card .subtext,
+.audit-card .subtext {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .learning-split {
+    grid-template-columns: 1fr;
+  }
+}
