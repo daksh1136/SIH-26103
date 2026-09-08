@@ -59,16 +59,6 @@ npm run dev
 
 ---
 
-## 👥 Team
-| Member | Responsibility |
-|---|---|
-| **Praveen** | Team Leader, Architecture & Integration |
-| **Sameesh** | Backend & Database |
-| **Daksh Sharma** | AI/Risk Engine & Analytics |
-| **Raj** | Frontend & Dashboard |
-| **Tanisha** | Data, Testing & Documentation |
-
----
-
 **SIH Problem Statement:** SIH26103  
 **Organization:** Ministry of Statistics and Programme Implementation (MoSPI)
+
