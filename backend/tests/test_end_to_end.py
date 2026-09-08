@@ -189,6 +189,37 @@ def test_contractor_retrain():
     assert retrain_res["accuracy"] >= 0.90
     print(f"✓ test_contractor_retrain passed: Accuracy {retrain_res['accuracy']*100:.1f}%")
 
+def test_salvage_plan_distressed():
+    res = client.get("/api/salvage/8")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["project_id"] == 8
+    assert "doom_probability_pct" in data
+    assert len(data["salvage_blueprint"]) == 3
+    assert data["impact_simulation"]["days_saved"] > 0
+    print(f"✓ test_salvage_plan_distressed passed: Project #{data['project_id']} {data['doom_level']} ({data['doom_probability_pct']}%)")
+
+def test_salvage_plan_healthy():
+    res = client.get("/api/salvage/1")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["project_id"] == 1
+    assert data["doom_level"] == "STABLE_HEALTHY"
+    print(f"✓ test_salvage_plan_healthy passed: Project #{data['project_id']} {data['doom_level']}")
+
+def test_salvage_execute():
+    payload = {
+        "project_id": 8,
+        "approved_by": "MoSPI Oversight Board",
+        "selected_actions": ["Tripartite Escrow", "24/7 Double Shift"]
+    }
+    res = client.post("/api/salvage/execute", json=payload)
+    assert res.status_code == 200
+    exec_res = res.json()
+    assert exec_res["status"] == "SALVAGE_DEPLOYED"
+    assert exec_res["salvaged_health_score"] > 0
+    print(f"✓ test_salvage_execute passed: {exec_res['message']}")
+
 if __name__ == "__main__":
     print("\n==============================================")
     print("🧪 RUNNING PROJECTPULSE END-TO-END TEST SUITE")
@@ -211,6 +242,10 @@ if __name__ == "__main__":
     test_contractor_evaluate_pristine()
     test_contractor_evaluate_disqualified()
     test_contractor_retrain()
+    test_salvage_plan_distressed()
+    test_salvage_plan_healthy()
+    test_salvage_execute()
     print("\n==============================================")
-    print("✅ ALL 18 END-TO-END TESTS PASSED SUCCESSFULLY!")
+    print("✅ ALL 21 END-TO-END TESTS PASSED SUCCESSFULLY!")
     print("==============================================\n")
+

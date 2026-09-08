@@ -423,3 +423,65 @@ class ContractorRetrainResponse(BaseModel):
     roc_auc: float
     total_samples: int
     feature_importances: Dict[str, float]
+
+
+# =========================================================
+# PROJECT DOOM & SALVAGE ENGINE SCHEMAS
+# =========================================================
+
+class SalvageActionItem(BaseModel):
+    action: str
+    details: str
+    responsible: str
+
+
+class SalvagePhase(BaseModel):
+    phase: str
+    timeframe: str
+    status: str
+    actions: List[SalvageActionItem]
+
+
+class SalvageImpactSimulation(BaseModel):
+    baseline_delay_days: int
+    salvaged_delay_days: int
+    days_saved: int
+    baseline_health_score: int
+    salvaged_health_score: int
+    health_score_gain: int
+    projected_cost_overrun_cr: float
+    capital_saved_cr: float
+    salvage_success_probability: int
+
+
+class SalvageResponse(BaseModel):
+    project_id: int
+    project_name: str
+    department: str
+    is_doomed: bool
+    doom_probability_pct: float
+    doom_level: str
+    doom_badge: str
+    doom_class: str
+    doom_summary: str
+    primary_failure_mode: str
+    salvage_blueprint: List[SalvagePhase]
+    impact_simulation: SalvageImpactSimulation
+    model_metadata: Dict[str, Any]
+
+
+class SalvageExecuteRequest(BaseModel):
+    project_id: int
+    approved_by: Optional[str] = "MoSPI Executive Director"
+    selected_actions: Optional[List[str]] = None
+
+
+class SalvageExecuteResponse(BaseModel):
+    project_id: int
+    status: str
+    message: str
+    salvaged_health_score: int
+    salvaged_delay_days: int
+    capital_saved_cr: float
+    execution_timestamp: str
+

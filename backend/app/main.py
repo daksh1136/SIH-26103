@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .database import Base, SessionLocal, engine
 from .models import Alert, Milestone, Project, ProjectUpdate
-from .routers import ai, contractors, milestones
+from .routers import ai, contractors, milestones, salvage
 from .schemas import (
     AlertResponse,
     DashboardSummaryResponse,
@@ -53,6 +53,8 @@ def get_db():
 app.include_router(milestones.router)
 app.include_router(ai.router)
 app.include_router(contractors.router)
+app.include_router(salvage.router)
+
 
 
 # =========================================================
