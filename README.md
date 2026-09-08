@@ -6,8 +6,8 @@ ProjectPulse is an enterprise-grade, AI-powered project monitoring and decision 
 
 The platform transforms infrastructure monitoring from passive retrospective reporting into proactive, predictive governance through explainable ML risk analysis (SHAP), dynamic 0–100 health scoring, What-If policy intervention simulation, unsupervised anomaly screening, geospatial GIS heatmaps, and continuous feedback learning loops.
 
-🌐 **Live Preview (Active):** [https://temporary-sonic-tungsten-d52z798.vercel.app](https://temporary-sonic-tungsten-d52z798.vercel.app)  
-🔒 **Claim Deployment Permanently:** [Claim to Your Vercel Account](https://vercel.com/claim-deployment?code=59c9743d-1328-4cb7-8676-f9e54d2216df)  
+🌐 **Live Preview (Active):** [https://temporary-fleet-acacia-n8d4d7z.vercel.app](https://temporary-fleet-acacia-n8d4d7z.vercel.app)  
+🔒 **Claim Deployment Permanently:** [Claim to Your Vercel Account](https://vercel.com/claim-deployment?code=7cf018e2-7eda-4980-87a2-8d4828d9d6bb)  
 🚀 **1-Click Permanent Production Deploy:** [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdaksh1136%2FSIH-26103&root-directory=frontend)
 
 ---

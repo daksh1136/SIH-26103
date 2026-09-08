@@ -48,6 +48,9 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [deptFilter, setDeptFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("relevance");
+  const [sortDir, setSortDir] = useState("desc");
+  const [projectViewMode, setProjectViewMode] = useState("cards"); // 'cards' | 'table'
 
   // Learning Loop State (Feature 10)
   const [learningMetrics, setLearningMetrics] = useState(DEFAULT_LEARNING_METRICS);
@@ -109,35 +112,158 @@ export default function App() {
     },
   ]);
 
-
   // Escalation toast
   const [toastMessage, setToastMessage] = useState("");
 
-  // Filtered projects
+  // Search relevance score calculator
+  const getSearchRelevance = (p, query) => {
+    if (!query || !query.trim()) return 0;
+    const q = query.toLowerCase().trim();
+    const name = (p.name || "").toLowerCase();
+    const dept = (p.department || "").toLowerCase();
+    const loc = (p.location || "").toLowerCase();
+    const mgr = (p.manager || "").toLowerCase();
+    const desc = (p.description || "").toLowerCase();
+    const status = (p.status || "").toLowerCase().replace("_", " ");
+
+    let score = 0;
+    if (name === q) score += 120;
+    else if (name.startsWith(q)) score += 90;
+    else if (name.includes(q)) score += 60;
+
+    if (dept === q) score += 50;
+    else if (dept.includes(q)) score += 35;
+
+    if (loc === q) score += 40;
+    else if (loc.includes(q)) score += 25;
+
+    if (status.includes(q)) score += 20;
+    if (mgr.includes(q)) score += 15;
+    if (desc.includes(q)) score += 10;
+
+    return score;
+  };
+
+  // Table column sorting handler
+  const handleTableSort = (colKey) => {
+    if (sortBy === colKey) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(colKey);
+      if (["name", "department", "location"].includes(colKey)) {
+        setSortDir("asc");
+      } else {
+        setSortDir("desc");
+      }
+    }
+  };
+
+  // Render sort direction icon
+  const renderTableSortIcon = (colKey) => {
+    if (sortBy === colKey) {
+      return <span className="sort-icon-active">{sortDir === "asc" ? " ▲" : " ▼"}</span>;
+    }
+    return <span className="sort-icon-inactive"> ↕</span>;
+  };
+
+  // Filtered and Sorted projects
   const filteredProjects = useMemo(() => {
-    return projects.filter((p) => {
+    const q = search.trim().toLowerCase();
+
+    // 1. Filtering by search, status, and department
+    const matched = projects.filter((p) => {
       const matchSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.department.toLowerCase().includes(search.toLowerCase()) ||
-        p.location.toLowerCase().includes(search.toLowerCase());
+        !q ||
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.department && p.department.toLowerCase().includes(q)) ||
+        (p.location && p.location.toLowerCase().includes(q)) ||
+        (p.manager && p.manager.toLowerCase().includes(q)) ||
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        (p.status && p.status.toLowerCase().replace("_", " ").includes(q));
+
       const matchStatus = filter === "ALL" || p.status === filter;
       const matchDept = deptFilter === "ALL" || p.department === deptFilter;
+
       return matchSearch && matchStatus && matchDept;
     });
-  }, [projects, search, filter, deptFilter]);
 
-  // Summary Metrics
+    // 2. Sorting
+    const isAsc = sortDir === "asc";
+    const mult = isAsc ? 1 : -1;
+
+    return [...matched].sort((a, b) => {
+      if (sortBy === "relevance") {
+        if (q) {
+          const scoreA = getSearchRelevance(a, q);
+          const scoreB = getSearchRelevance(b, q);
+          if (scoreA !== scoreB) {
+            return mult * (scoreB - scoreA);
+          }
+        }
+        const delA = calculateProjectRiskIntelligence(a).estimatedDelayDays || 0;
+        const delB = calculateProjectRiskIntelligence(b).estimatedDelayDays || 0;
+        return mult * (delB - delA);
+      }
+
+      if (sortBy === "delay" || sortBy === "risk") {
+        const delA = calculateProjectRiskIntelligence(a).estimatedDelayDays || 0;
+        const delB = calculateProjectRiskIntelligence(b).estimatedDelayDays || 0;
+        return mult * (delA - delB);
+      }
+
+      if (sortBy === "health") {
+        const hA = calculateProjectHealthScore(a).score || 0;
+        const hB = calculateProjectHealthScore(b).score || 0;
+        return mult * (hA - hB);
+      }
+
+      if (sortBy === "budget") {
+        const bA = a.approved_budget || 0;
+        const bB = b.approved_budget || 0;
+        return mult * (bA - bB);
+      }
+
+      if (sortBy === "physical") {
+        const pA = a.physical_progress || 0;
+        const pB = b.physical_progress || 0;
+        return mult * (pA - pB);
+      }
+
+      if (sortBy === "financial") {
+        const fA = a.financial_progress || 0;
+        const fB = b.financial_progress || 0;
+        return mult * (fA - fB);
+      }
+
+      if (sortBy === "name") {
+        return mult * (a.name || "").localeCompare(b.name || "");
+      }
+
+      if (sortBy === "department") {
+        return mult * (a.department || "").localeCompare(b.department || "");
+      }
+
+      if (sortBy === "location") {
+        return mult * (a.location || "").localeCompare(b.location || "");
+      }
+
+      return 0;
+    });
+  }, [projects, search, filter, deptFilter, sortBy, sortDir]);
+
+  // Summary Metrics (Reflects active filtered subset, or all projects)
   const summary = useMemo(() => {
-    const total = projects.length;
-    const onTrack = projects.filter((p) => p.status === "ON_TRACK").length;
-    const atRisk = projects.filter((p) => p.status === "AT_RISK").length;
-    const delayed = projects.filter((p) => p.status === "DELAYED").length;
-    const critical = projects.filter((p) => p.status === "CRITICAL").length;
-    const totalBudget = projects.reduce((acc, p) => acc + (p.approved_budget || 0), 0);
-    const totalReleased = projects.reduce((acc, p) => acc + (p.released_funds || 0), 0);
-    const totalSpend = projects.reduce((acc, p) => acc + (p.expenditure || 0), 0);
-    const avgPhys = (projects.reduce((acc, p) => acc + (p.physical_progress || 0), 0) / total).toFixed(1);
-    const avgFin = (projects.reduce((acc, p) => acc + (p.financial_progress || 0), 0) / total).toFixed(1);
+    const list = filteredProjects.length > 0 ? filteredProjects : (search.trim() || deptFilter !== "ALL" || filter !== "ALL" ? [] : projects);
+    const total = list.length;
+    const onTrack = list.filter((p) => p.status === "ON_TRACK").length;
+    const atRisk = list.filter((p) => p.status === "AT_RISK").length;
+    const delayed = list.filter((p) => p.status === "DELAYED").length;
+    const critical = list.filter((p) => p.status === "CRITICAL").length;
+    const totalBudget = list.reduce((acc, p) => acc + (p.approved_budget || 0), 0);
+    const totalReleased = list.reduce((acc, p) => acc + (p.released_funds || 0), 0);
+    const totalSpend = list.reduce((acc, p) => acc + (p.expenditure || 0), 0);
+    const avgPhys = total > 0 ? (list.reduce((acc, p) => acc + (p.physical_progress || 0), 0) / total).toFixed(1) : "0.0";
+    const avgFin = total > 0 ? (list.reduce((acc, p) => acc + (p.financial_progress || 0), 0) / total).toFixed(1) : "0.0";
 
     return {
       total,
@@ -151,11 +277,11 @@ export default function App() {
       avgPhys,
       avgFin,
     };
-  }, [projects]);
+  }, [filteredProjects, projects, search, deptFilter, filter]);
 
   // Department list
   const departments = useMemo(() => {
-    return Array.from(new Set(projects.map((p) => p.department)));
+    return Array.from(new Set(projects.map((p) => p.department))).sort();
   }, [projects]);
 
   // All screened anomalies
@@ -166,6 +292,36 @@ export default function App() {
       risk: calculateProjectRiskIntelligence(p),
     }));
   }, [projects]);
+
+  // Screened anomalies filtered by search and department
+  const filteredScreenedAnomalies = useMemo(() => {
+    return screenedAnomalies.filter(({ project: p }) => {
+      const q = search.trim().toLowerCase();
+      const matchSearch =
+        !q ||
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.department && p.department.toLowerCase().includes(q)) ||
+        (p.location && p.location.toLowerCase().includes(q));
+      const matchDept = deptFilter === "ALL" || p.department === deptFilter;
+      return matchSearch && matchDept;
+    });
+  }, [screenedAnomalies, search, deptFilter]);
+
+  // Alerts filtered by search and department
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter((a) => {
+      const q = search.trim().toLowerCase();
+      const matchSearch =
+        !q ||
+        (a.project_name && a.project_name.toLowerCase().includes(q)) ||
+        (a.department && a.department.toLowerCase().includes(q)) ||
+        (a.location && a.location.toLowerCase().includes(q)) ||
+        (a.message && a.message.toLowerCase().includes(q)) ||
+        (a.recommendation && a.recommendation.toLowerCase().includes(q));
+      const matchDept = deptFilter === "ALL" || a.department === deptFilter;
+      return matchSearch && matchDept;
+    });
+  }, [alerts, search, deptFilter]);
 
   // Run What-If Simulation
   const whatIfResult = useMemo(() => {
@@ -339,28 +495,71 @@ export default function App() {
         <header className="topbar">
           <div className="topbar-left">
             <div className="search-box">
-              <span>⌕</span>
+              <span className="search-icon">⌕</span>
               <input
                 type="text"
-                placeholder="Search projects by name, department, or state..."
+                placeholder="Search projects by name, ministry, state, manager..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {search && <button onClick={() => setSearch("")}>×</button>}
+              {search && (
+                <button
+                  type="button"
+                  className="search-clear-btn"
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              )}
             </div>
 
-            <select
-              className="dept-select"
-              value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
-            >
-              <option value="ALL">All Ministries/Departments</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+            <div className="dept-select-wrap">
+              <select
+                className="dept-select"
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                title="Filter by Ministry or Department"
+              >
+                <option value="ALL">🏛️ All Ministries ({projects.length})</option>
+                {departments.map((d) => {
+                  const count = projects.filter((p) => p.department === d).length;
+                  return (
+                    <option key={d} value={d}>
+                      {d} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="sort-box" title="Sort order of projects">
+              <span className="sort-box-icon">⇅</span>
+              <select
+                className="sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                title="Select sort criterion"
+              >
+                <option value="relevance">{search.trim() ? "🎯 Best Match" : "⚡ Priority Risk"}</option>
+                <option value="delay">🚨 Delay Days (Max first)</option>
+                <option value="health">🩺 Health Score (Critical first)</option>
+                <option value="budget">💰 Budget (Highest first)</option>
+                <option value="physical">🏗️ Progress (Lowest first)</option>
+                <option value="financial">💳 Spend (Highest first)</option>
+                <option value="name">🔤 Project Name (A → Z)</option>
+                <option value="department">🏛️ Ministry (A → Z)</option>
+                <option value="location">📍 Location (A → Z)</option>
+              </select>
+              <button
+                type="button"
+                className="sort-dir-btn"
+                onClick={() => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
+                title={`Toggle direction: ${sortDir === "asc" ? "Ascending ▲" : "Descending ▼"}`}
+              >
+                {sortDir === "asc" ? "▲" : "▼"}
+              </button>
+            </div>
           </div>
 
           <div className="topbar-right">
@@ -399,6 +598,40 @@ export default function App() {
                 </div>
               </div>
 
+              {/* ACTIVE FILTERS BANNER (WHEN SEARCH OR MINISTRY FILTER IS APPLIED) */}
+              {(deptFilter !== "ALL" || search.trim()) && (
+                <div className="active-filters-banner">
+                  <div className="active-filters-content">
+                    <span className="filter-summary-text">Active Filter Scope:</span>
+                    {deptFilter !== "ALL" && (
+                      <span className="filter-pill">
+                        🏛️ Ministry: <strong>{deptFilter}</strong>
+                        <button onClick={() => setDeptFilter("ALL")} title="Clear ministry filter">×</button>
+                      </span>
+                    )}
+                    {search.trim() && (
+                      <span className="filter-pill">
+                        🔍 Search: "<strong>{search}</strong>"
+                        <button onClick={() => setSearch("")} title="Clear search">×</button>
+                      </span>
+                    )}
+                    <span className="filter-count-badge">
+                      {filteredProjects.length} of {projects.length} projects match
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="clear-all-filters-btn"
+                    onClick={() => {
+                      setSearch("");
+                      setDeptFilter("ALL");
+                    }}
+                  >
+                    Reset to National Scope
+                  </button>
+                </div>
+              )}
+
               {/* KPI TILES */}
               <div className="kpi-grid">
                 <div className="kpi-card">
@@ -409,7 +642,7 @@ export default function App() {
                 <div className="kpi-card on-track">
                   <span className="kpi-label">ON TRACK</span>
                   <div className="kpi-value">{summary.onTrack}</div>
-                  <div className="kpi-sub">{( (summary.onTrack / summary.total) * 100 ).toFixed(0)}% within tolerance</div>
+                  <div className="kpi-sub">{summary.total > 0 ? ((summary.onTrack / summary.total) * 100).toFixed(0) : 0}% within tolerance</div>
                 </div>
                 <div className="kpi-card at-risk">
                   <span className="kpi-label">AT RISK</span>
@@ -444,10 +677,10 @@ export default function App() {
                   <div className="progress-bar-wrap">
                     <div
                       className="progress-bar-fill fin"
-                      style={{ width: `${(summary.totalSpend / summary.totalBudget) * 100}%` }}
+                      style={{ width: `${summary.totalBudget > 0 ? (summary.totalSpend / summary.totalBudget) * 100 : 0}%` }}
                     />
                   </div>
-                  <small>Budget Burn Rate: {((summary.totalSpend / summary.totalBudget) * 100).toFixed(1)}%</small>
+                  <small>Budget Burn Rate: {summary.totalBudget > 0 ? ((summary.totalSpend / summary.totalBudget) * 100).toFixed(1) : 0}%</small>
                 </div>
 
                 <div className="card">
@@ -472,7 +705,7 @@ export default function App() {
                     <span>⚠</span>
                     <p>
                       Financial progress leads physical execution by{" "}
-                      <strong>{(summary.avgFin - summary.avgPhys).toFixed(1)}%</strong> nationally.
+                      <strong>{(summary.avgFin - summary.avgPhys).toFixed(1)}%</strong> in this scope.
                     </p>
                   </div>
                 </div>
@@ -490,29 +723,53 @@ export default function App() {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Project</th>
-                        <th>Ministry</th>
-                        <th>Location</th>
-                        <th>Physical vs Financial</th>
-                        <th>Health Score</th>
-                        <th>Predicted Delay</th>
+                        <th className="sortable-th" onClick={() => handleTableSort("name")}>
+                          Project {renderTableSortIcon("name")}
+                        </th>
+                        <th className="sortable-th" onClick={() => handleTableSort("department")}>
+                          Ministry {renderTableSortIcon("department")}
+                        </th>
+                        <th className="sortable-th" onClick={() => handleTableSort("location")}>
+                          Location {renderTableSortIcon("location")}
+                        </th>
+                        <th className="sortable-th" onClick={() => handleTableSort("physical")}>
+                          Physical vs Financial {renderTableSortIcon("physical")}
+                        </th>
+                        <th className="sortable-th" onClick={() => handleTableSort("health")}>
+                          Health Score {renderTableSortIcon("health")}
+                        </th>
+                        <th className="sortable-th" onClick={() => handleTableSort("delay")}>
+                          Predicted Delay {renderTableSortIcon("delay")}
+                        </th>
                         <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {projects
-                        .filter((p) => p.status === "CRITICAL" || p.status === "AT_RISK")
-                        .slice(0, 5)
-                        .map((p) => {
+                      {(() => {
+                        const criticalOrRisk = filteredProjects.filter((p) => p.status === "CRITICAL" || p.status === "AT_RISK");
+                        const displayList = criticalOrRisk.length > 0 ? criticalOrRisk : filteredProjects;
+
+                        if (displayList.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={7} style={{ textAlign: "center", padding: "32px", color: "#64748b" }}>
+                                No projects match the active search or ministry filter.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return displayList.slice(0, 6).map((p) => {
                           const health = calculateProjectHealthScore(p);
                           const risk = calculateProjectRiskIntelligence(p);
                           return (
                             <tr key={p.id}>
                               <td>
                                 <strong>{p.name}</strong>
+                                <small style={{ display: "block", color: "#64748b" }}>#{p.id} • {p.manager}</small>
                               </td>
-                              <td>{p.department}</td>
-                              <td>{p.location}</td>
+                              <td><span className="badge-dept-inline">{p.department}</span></td>
+                              <td>📍 {p.location}</td>
                               <td>
                                 <div className="progress-pill">
                                   <span>{p.physical_progress}% phys</span>
@@ -525,10 +782,13 @@ export default function App() {
                                 </span>
                               </td>
                               <td>
-                                <strong className="text-danger">~{risk.estimatedDelayDays} days</strong>
+                                <strong className={risk.estimatedDelayDays > 20 ? "text-danger" : "text-success"}>
+                                  {risk.estimatedDelayDays > 0 ? `~${risk.estimatedDelayDays} days` : "On schedule"}
+                                </strong>
                               </td>
                               <td>
                                 <button
+                                  type="button"
                                   className="btn-sm"
                                   onClick={() => setSelectedProject(p)}
                                 >
@@ -537,7 +797,8 @@ export default function App() {
                               </td>
                             </tr>
                           );
-                        })}
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -553,99 +814,336 @@ export default function App() {
               <div className="view-header">
                 <div>
                   <h1>Monitored Infrastructure Projects</h1>
-                  <p>Comprehensive register of central sector projects under active monitoring</p>
+                  <p>Comprehensive register of central sector projects under active monitoring with multi-criteria sorting</p>
                 </div>
                 <div className="filter-chips">
-                  {["ALL", "ON_TRACK", "AT_RISK", "DELAYED", "CRITICAL"].map((st) => (
-                    <button
-                      key={st}
-                      className={`chip ${filter === st ? "active" : ""}`}
-                      onClick={() => setFilter(st)}
-                    >
-                      {st.replace("_", " ")}
-                    </button>
-                  ))}
+                  {["ALL", "ON_TRACK", "AT_RISK", "DELAYED", "CRITICAL"].map((st) => {
+                    const cnt = projects.filter((p) => {
+                      const q = search.trim().toLowerCase();
+                      const matchSearch =
+                        !q ||
+                        (p.name && p.name.toLowerCase().includes(q)) ||
+                        (p.department && p.department.toLowerCase().includes(q)) ||
+                        (p.location && p.location.toLowerCase().includes(q));
+                      const matchDept = deptFilter === "ALL" || p.department === deptFilter;
+                      const matchStatus = st === "ALL" || p.status === st;
+                      return matchSearch && matchDept && matchStatus;
+                    }).length;
+
+                    return (
+                      <button
+                        key={st}
+                        type="button"
+                        className={`chip ${filter === st ? "active" : ""}`}
+                        onClick={() => setFilter(st)}
+                      >
+                        {st.replace("_", " ")} ({cnt})
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="project-grid">
-                {filteredProjects.map((p) => {
-                  const health = calculateProjectHealthScore(p);
-                  const risk = calculateProjectRiskIntelligence(p);
-                  const st = statusConfig[p.status] || statusConfig.ON_TRACK;
+              {/* PROJECTS TOOLBAR: RESULTS COUNT, ACTIVE TAGS, VIEW TOGGLE, SORTING */}
+              <div className="projects-toolbar">
+                <div className="toolbar-left">
+                  <span className="results-count">
+                    Showing <strong>{filteredProjects.length}</strong> of <strong>{projects.length}</strong> projects
+                    {deptFilter !== "ALL" && (
+                      <span className="active-tag">
+                        🏛️ {deptFilter}
+                        <button type="button" onClick={() => setDeptFilter("ALL")} title="Clear ministry">×</button>
+                      </span>
+                    )}
+                    {search.trim() && (
+                      <span className="active-tag">
+                        🔍 "{search}"
+                        <button type="button" onClick={() => setSearch("")} title="Clear search">×</button>
+                      </span>
+                    )}
+                    {filter !== "ALL" && (
+                      <span className="active-tag">
+                        ⚡ {filter.replace("_", " ")}
+                        <button type="button" onClick={() => setFilter("ALL")} title="Clear status">×</button>
+                      </span>
+                    )}
+                  </span>
+                  {(deptFilter !== "ALL" || search.trim() || filter !== "ALL") && (
+                    <button
+                      type="button"
+                      className="clear-filters-link"
+                      onClick={() => {
+                        setSearch("");
+                        setDeptFilter("ALL");
+                        setFilter("ALL");
+                        setSortBy("relevance");
+                        setSortDir("desc");
+                      }}
+                    >
+                      Clear all filters
+                    </button>
+                  )}
+                </div>
 
-                  return (
-                    <div className="project-card" key={p.id}>
-                      <div className="project-card-top">
-                        <div>
-                          <span className="project-dept">{p.department}</span>
-                          <h3 className="project-title">{p.name}</h3>
-                          <span className="project-loc">📍 {p.location}</span>
-                        </div>
-                        <span className={`status-tag ${st.className}`}>
-                          {st.icon} {st.label}
-                        </span>
-                      </div>
+                <div className="toolbar-right">
+                  {/* VIEW MODE TOGGLE */}
+                  <div className="view-mode-toggle">
+                    <button
+                      type="button"
+                      className={`view-mode-btn ${projectViewMode === "cards" ? "active" : ""}`}
+                      onClick={() => setProjectViewMode("cards")}
+                      title="Card Grid View"
+                    >
+                      ⊞ Cards
+                    </button>
+                    <button
+                      type="button"
+                      className={`view-mode-btn ${projectViewMode === "table" ? "active" : ""}`}
+                      onClick={() => setProjectViewMode("table")}
+                      title="Interactive Data Table View"
+                    >
+                      ☰ Table
+                    </button>
+                  </div>
 
-                      <p className="project-desc">{p.description}</p>
-
-                      <div className="project-metrics-grid">
-                        <div>
-                          <span>Physical Progress</span>
-                          <strong>{p.physical_progress}%</strong>
-                        </div>
-                        <div>
-                          <span>Financial Utilization</span>
-                          <strong>{p.financial_progress}%</strong>
-                        </div>
-                        <div>
-                          <span>Budget</span>
-                          <strong>{money(p.approved_budget)}</strong>
-                        </div>
-                        <div>
-                          <span>Delay Risk</span>
-                          <strong className={`risk-text ${risk.riskLevel.toLowerCase()}`}>
-                            {risk.badge} {risk.riskScore}%
-                          </strong>
-                        </div>
-                      </div>
-
-                      <div className="project-health-bar">
-                        <div className="health-bar-header">
-                          <span>Health Score:</span>
-                          <strong className={health.category.toLowerCase()}>
-                            {health.badge} {health.score}/100 ({health.label})
-                          </strong>
-                        </div>
-                        <div className="meter-track">
-                          <div
-                            className={`meter-fill ${health.category.toLowerCase()}`}
-                            style={{ width: `${health.score}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="project-card-footer">
-                        <button
-                          className="btn-outline"
-                          onClick={() => {
-                            setWhatIfProject(p);
-                            setActiveNav("What-If Lab");
-                          }}
-                        >
-                          ⚡ What-If
-                        </button>
-                        <button
-                          className="btn-primary"
-                          onClick={() => setSelectedProject(p)}
-                        >
-                          Deep AI Risk & SHAP →
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                  {/* INLINE SORT SELECTOR */}
+                  <div className="sort-inline-wrap">
+                    <label>Sort by:</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="sort-select-inline"
+                    >
+                      <option value="relevance">{search.trim() ? "🎯 Match Relevance" : "⚡ Priority Risk"}</option>
+                      <option value="delay">🚨 Delay Days</option>
+                      <option value="health">🩺 Health Score</option>
+                      <option value="budget">💰 Budget Outlay</option>
+                      <option value="physical">🏗️ Progress</option>
+                      <option value="financial">💳 Spend</option>
+                      <option value="name">🔤 Project Name</option>
+                      <option value="department">🏛️ Ministry</option>
+                      <option value="location">📍 Location</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="sort-dir-btn"
+                      onClick={() => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
+                      title={`Toggle direction: ${sortDir === "asc" ? "Ascending ▲" : "Descending ▼"}`}
+                    >
+                      {sortDir === "asc" ? "▲" : "▼"}
+                    </button>
+                  </div>
+                </div>
               </div>
+
+              {/* EMPTY STATE */}
+              {filteredProjects.length === 0 && (
+                <div className="empty-state-card">
+                  <div className="empty-icon">🔍</div>
+                  <h3>No Projects Match Active Filters</h3>
+                  <p>
+                    No projects found for {search.trim() ? <span>"<strong>{search}</strong>"</span> : "the current filters"}{" "}
+                    {deptFilter !== "ALL" && <span>in <strong>{deptFilter}</strong></span>}.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      setSearch("");
+                      setDeptFilter("ALL");
+                      setFilter("ALL");
+                    }}
+                  >
+                    Clear All Filters ({projects.length} Projects)
+                  </button>
+                </div>
+              )}
+
+              {/* TABLE VIEW */}
+              {filteredProjects.length > 0 && projectViewMode === "table" && (
+                <div className="card table-view-card">
+                  <div className="table-responsive">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="sortable-th" onClick={() => handleTableSort("name")}>
+                            Project Name {renderTableSortIcon("name")}
+                          </th>
+                          <th className="sortable-th" onClick={() => handleTableSort("department")}>
+                            Ministry / Department {renderTableSortIcon("department")}
+                          </th>
+                          <th className="sortable-th" onClick={() => handleTableSort("location")}>
+                            Location {renderTableSortIcon("location")}
+                          </th>
+                          <th className="sortable-th" onClick={() => handleTableSort("physical")}>
+                            Physical vs Financial {renderTableSortIcon("physical")}
+                          </th>
+                          <th className="sortable-th" onClick={() => handleTableSort("health")}>
+                            Health Score {renderTableSortIcon("health")}
+                          </th>
+                          <th className="sortable-th" onClick={() => handleTableSort("delay")}>
+                            Predicted Delay {renderTableSortIcon("delay")}
+                          </th>
+                          <th className="sortable-th" onClick={() => handleTableSort("budget")}>
+                            Budget Outlay {renderTableSortIcon("budget")}
+                          </th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredProjects.map((p) => {
+                          const health = calculateProjectHealthScore(p);
+                          const risk = calculateProjectRiskIntelligence(p);
+                          const st = statusConfig[p.status] || statusConfig.ON_TRACK;
+
+                          return (
+                            <tr key={p.id}>
+                              <td>
+                                <strong>{p.name}</strong>
+                                <small style={{ display: "block", color: "#64748b" }}>#{p.id} • {p.manager}</small>
+                              </td>
+                              <td><span className="badge-dept-inline">{p.department}</span></td>
+                              <td>📍 {p.location}</td>
+                              <td>
+                                <div className="progress-pill">
+                                  <span>{p.physical_progress}% phys</span>
+                                  <small>{p.financial_progress}% fin</small>
+                                </div>
+                              </td>
+                              <td>
+                                <span className={`health-badge ${health.category.toLowerCase()}`}>
+                                  {health.badge} {health.score}/100
+                                </span>
+                              </td>
+                              <td>
+                                <strong className={risk.estimatedDelayDays > 20 ? "text-danger" : "text-success"}>
+                                  {risk.estimatedDelayDays > 0 ? `~${risk.estimatedDelayDays} days` : "On schedule"}
+                                </strong>
+                              </td>
+                              <td>
+                                <strong>{money(p.approved_budget)}</strong>
+                              </td>
+                              <td>
+                                <span className={`status-tag ${st.className}`}>
+                                  {st.icon} {st.label}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <button
+                                    type="button"
+                                    className="btn-sm btn-outline"
+                                    onClick={() => {
+                                      setWhatIfProject(p);
+                                      setActiveNav("What-If Lab");
+                                    }}
+                                    title="Simulate What-If policy intervention"
+                                  >
+                                    ⚡ What-If
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-sm btn-primary"
+                                    onClick={() => setSelectedProject(p)}
+                                    title="Deep AI Risk Diagnostics & SHAP"
+                                  >
+                                    AI Risk →
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* CARD GRID VIEW */}
+              {filteredProjects.length > 0 && projectViewMode === "cards" && (
+                <div className="project-grid">
+                  {filteredProjects.map((p) => {
+                    const health = calculateProjectHealthScore(p);
+                    const risk = calculateProjectRiskIntelligence(p);
+                    const st = statusConfig[p.status] || statusConfig.ON_TRACK;
+
+                    return (
+                      <div className="project-card" key={p.id}>
+                        <div className="project-card-top">
+                          <div>
+                            <span className="project-dept">{p.department}</span>
+                            <h3 className="project-title">{p.name}</h3>
+                            <span className="project-loc">📍 {p.location}</span>
+                          </div>
+                          <span className={`status-tag ${st.className}`}>
+                            {st.icon} {st.label}
+                          </span>
+                        </div>
+
+                        <p className="project-desc">{p.description}</p>
+
+                        <div className="project-metrics-grid">
+                          <div>
+                            <span>Physical Progress</span>
+                            <strong>{p.physical_progress}%</strong>
+                          </div>
+                          <div>
+                            <span>Financial Utilization</span>
+                            <strong>{p.financial_progress}%</strong>
+                          </div>
+                          <div>
+                            <span>Budget</span>
+                            <strong>{money(p.approved_budget)}</strong>
+                          </div>
+                          <div>
+                            <span>Delay Risk</span>
+                            <strong className={`risk-text ${risk.riskLevel.toLowerCase()}`}>
+                              {risk.badge} {risk.riskScore}%
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div className="project-health-bar">
+                          <div className="health-bar-header">
+                            <span>Health Score:</span>
+                            <strong className={health.category.toLowerCase()}>
+                              {health.badge} {health.score}/100 ({health.label})
+                            </strong>
+                          </div>
+                          <div className="meter-track">
+                            <div
+                              className={`meter-fill ${health.category.toLowerCase()}`}
+                              style={{ width: `${health.score}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="project-card-footer">
+                          <button
+                            type="button"
+                            className="btn-outline"
+                            onClick={() => {
+                              setWhatIfProject(p);
+                              setActiveNav("What-If Lab");
+                            }}
+                          >
+                            ⚡ What-If
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            onClick={() => setSelectedProject(p)}
+                          >
+                            Deep AI Risk & SHAP →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -873,7 +1371,14 @@ export default function App() {
               </div>
 
               <div className="anomaly-list">
-                {screenedAnomalies.map(({ project: p, anomaly: a, risk: r }) => (
+                {filteredScreenedAnomalies.length === 0 ? (
+                  <div className="empty-state-card">
+                    <div className="empty-icon">🛡️</div>
+                    <h3>No Data Anomalies Matching Filters</h3>
+                    <p>No infrastructure projects match your current search or ministry filter.</p>
+                  </div>
+                ) : (
+                  filteredScreenedAnomalies.map(({ project: p, anomaly: a, risk: r }) => (
                   <div className={`anomaly-card ${a.isAnomaly ? "flagged" : "clean"}`} key={p.id}>
                     <div className="anomaly-header">
                       <div>
@@ -938,7 +1443,8 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                ))}
+                ))
+              )}
               </div>
             </div>
           )}
@@ -1163,7 +1669,14 @@ export default function App() {
               </div>
 
               <div className="alerts-list">
-                {alerts.map((a) => (
+                {filteredAlerts.length === 0 ? (
+                  <div className="empty-state-card">
+                    <div className="empty-icon">🚨</div>
+                    <h3>No Active Alerts for This Filter</h3>
+                    <p>No project alerts match your current search or ministry filter.</p>
+                  </div>
+                ) : (
+                  filteredAlerts.map((a) => (
                   <div className={`alert-card ${a.severity.toLowerCase()}`} key={a.id}>
                     <div className="alert-card-header">
                       <div>
@@ -1195,7 +1708,8 @@ export default function App() {
                       </button>
                     </div>
                   </div>
-                ))}
+                ))
+              )}
               </div>
             </div>
           )}
@@ -1213,7 +1727,9 @@ export default function App() {
               </div>
 
               <div className="analytics-grid">
-                {departments.map((dept) => {
+                {departments
+                  .filter((dept) => deptFilter === "ALL" || dept === deptFilter)
+                  .map((dept) => {
                   const deptProjects = projects.filter((p) => p.department === dept);
                   const bTotal = deptProjects.reduce((acc, p) => acc + p.approved_budget, 0);
                   const eTotal = deptProjects.reduce((acc, p) => acc + p.expenditure, 0);
