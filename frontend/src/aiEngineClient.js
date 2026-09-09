@@ -1879,6 +1879,48 @@ export function exportMasterJson(dataset = SHOWCASE_MASTER_DATASET) {
   return JSON.stringify(dataset, null, 2);
 }
 
+export function exportPredictionsToCsv(predictionsList) {
+  if (!predictionsList || !predictionsList.length) return '';
+  const headers = [
+    'id', 'name', 'department', 'location', 'approved_budget',
+    'expenditure', 'physical_progress', 'financial_progress', 'contractor_name',
+    'ml_predicted_delay_days', 'ml_delay_risk_level', 'ml_health_score',
+    'ml_health_category', 'doom_probability_pct', 'doom_category', 'anomaly_detected'
+  ];
+  const rows = predictionsList.map(item => {
+    const p = item.project || item;
+    const r = item.risk || {};
+    const d = item.doom || {};
+    const a = item.anomaly || {};
+    const row = [
+      p.id,
+      p.name,
+      p.department,
+      p.location,
+      p.approved_budget,
+      p.expenditure,
+      p.physical_progress,
+      p.financial_progress,
+      p.contractor_name,
+      r.estimatedDelayDays !== undefined ? r.estimatedDelayDays : 0,
+      r.riskLevel || 'UNKNOWN',
+      r.healthScore !== undefined ? r.healthScore : 70,
+      r.healthCategory || 'HEALTHY',
+      d.doom_score !== undefined ? d.doom_score : 0,
+      d.doom_category || 'STABLE',
+      a.isAnomaly ? 'YES' : 'NO'
+    ];
+    return row.map(val => {
+      let str = val !== undefined && val !== null ? String(val) : '';
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        str = `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }).join(',');
+  });
+  return [headers.join(','), ...rows].join('\n');
+}
+
 export function parseAndValidateShowcaseDataset(rawText) {
   try {
     const trimmed = rawText.trim();

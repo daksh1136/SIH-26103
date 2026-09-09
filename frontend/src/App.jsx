@@ -39,6 +39,7 @@ import {
   exportContractorsToCsv,
   exportMilestonesToCsv,
   exportMasterJson,
+  exportPredictionsToCsv,
   parseAndValidateShowcaseDataset,
   DATASET_DICTIONARY,
 } from "./aiEngineClient";
@@ -146,13 +147,105 @@ export default function App() {
   const [isExecutingSalvage, setIsExecutingSalvage] = useState(false);
   const [salvagedProjectIds, setSalvagedProjectIds] = useState(new Set());
 
-  // Dataset Hub & Ingestion Studio State
-  const [datasetActiveTab, setDatasetActiveTab] = useState("studio"); // 'studio' | 'preview' | 'import' | 'dictionary'
+  // Dataset Hub & CSV AI Predictor State
+  const [datasetActiveTab, setDatasetActiveTab] = useState("predictor"); // 'predictor' | 'studio' | 'preview' | 'dictionary'
   const [previewTable, setPreviewTable] = useState("projects"); // 'projects' | 'contractors' | 'milestones'
   const [datasetSearch, setDatasetSearch] = useState("");
   const [customInputText, setCustomInputText] = useState("");
   const [datasetNotification, setDatasetNotification] = useState(null);
   const [isInjectingDataset, setIsInjectingDataset] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedPredictions, setUploadedPredictions] = useState(null);
+  const [uploadedStats, setUploadedStats] = useState(null);
+
+  const runPredictionsOnProjectList = (projectsList, sourceName = "Uploaded CSV") => {
+    const batch = projectsList.map((proj) => {
+      const risk = calculateProjectRiskIntelligence(proj);
+      const doom = evaluateProjectDoomRisk(proj);
+      const anomaly = detectProjectAnomalies(proj);
+      return { project: proj, risk, doom, anomaly };
+    });
+
+    const totalAtRisk = batch.filter(
+      (b) => b.risk.riskLevel === "CRITICAL" || b.risk.riskLevel === "HIGH"
+    ).length;
+    const avgDelay = Math.round(
+      batch.reduce((sum, b) => sum + (b.risk.estimatedDelayDays || 0), 0) /
+        (batch.length || 1)
+    );
+    const avgHealth = Math.round(
+      batch.reduce((sum, b) => sum + (b.risk.healthScore || 0), 0) /
+        (batch.length || 1)
+    );
+    const totalCapitalAtRisk = batch
+      .filter((b) => b.risk.riskLevel === "CRITICAL" || b.risk.riskLevel === "HIGH")
+      .reduce((sum, b) => sum + (Number(b.project.approved_budget) || 0), 0);
+
+    setUploadedPredictions(batch);
+    setUploadedStats({
+      count: batch.length,
+      totalAtRisk,
+      avgDelay,
+      avgHealth,
+      totalCapitalAtRisk,
+      sourceName,
+    });
+    setUploadedFileName(sourceName);
+    setDatasetActiveTab("predictor");
+  };
+
+  const processUploadedFile = (file) => {
+    if (!file) return;
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result;
+      if (typeof text === "string") {
+        setCustomInputText(text);
+        const res = parseAndValidateShowcaseDataset(text);
+        if (res.success) {
+          runPredictionsOnProjectList(res.projects, file.name);
+          setDatasetNotification({
+            type: "success",
+            text: `🎯 File '${file.name}' processed: Ran ML delay models & health scoring across all ${res.count} projects! Review batch predictions below.`,
+          });
+          setTimeout(() => setDatasetNotification(null), 8000);
+        } else {
+          setDatasetNotification({
+            type: "error",
+            text: `CSV / Dataset Parsing Error: ${res.error}`,
+          });
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) processUploadedFile(file);
+  };
+
+  const handleLoadSampleCsvToPredictor = () => {
+    runPredictionsOnProjectList(EXPANDED_SHOWCASE_DATASET, "mospi_projects_master.csv (20 Projects)");
+    setDatasetNotification({
+      type: "success",
+      text: "⚡ Loaded 20-Project Showcase CSV into ML Predictor! Evaluated delay days, health scores, and doom risks.",
+    });
+    setTimeout(() => setDatasetNotification(null), 6000);
+  };
+
+  const handleApplyPredictionsToPlatform = () => {
+    if (!uploadedPredictions || !uploadedPredictions.length) return;
+    const projs = uploadedPredictions.map((u) => u.project);
+    setProjects(projs);
+    setDatasetNotification({
+      type: "success",
+      text: `🚀 Applied ${projs.length} evaluated projects to active platform monitor! All dashboards, maps, and salvage tabs now track this dataset.`,
+    });
+    setTimeout(() => setDatasetNotification(null), 6000);
+  };
 
   const handleLoadShowcaseDataset = () => {
     setIsInjectingDataset(true);
@@ -173,6 +266,9 @@ export default function App() {
     setProjects(INITIAL_PROJECTS);
     setContractors(INITIAL_CONTRACTORS);
     setMilestones(INITIAL_MILESTONES);
+    setUploadedPredictions(null);
+    setUploadedStats(null);
+    setUploadedFileName("");
     setDatasetNotification({
       type: "info",
       text: "Restored baseline standard dataset (6 core projects).",
@@ -197,6 +293,7 @@ export default function App() {
       });
       return;
     }
+    runPredictionsOnProjectList(res.projects, "Pasted Custom Data");
     setProjects(res.projects);
     if (res.contractors && res.contractors.length) {
       setContractors(res.contractors);
@@ -210,35 +307,6 @@ export default function App() {
     });
     setCustomInputText("");
     setTimeout(() => setDatasetNotification(null), 7000);
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result;
-      if (typeof text === "string") {
-        setCustomInputText(text);
-        const res = parseAndValidateShowcaseDataset(text);
-        if (res.success) {
-          setProjects(res.projects);
-          if (res.contractors && res.contractors.length) setContractors(res.contractors);
-          if (res.milestones && res.milestones.length) setMilestones(res.milestones);
-          setDatasetNotification({
-            type: "success",
-            text: `File '${file.name}' ingested: Injected ${res.count} projects into active memory!`,
-          });
-          setTimeout(() => setDatasetNotification(null), 6000);
-        } else {
-          setDatasetNotification({
-            type: "error",
-            text: `File parse warning: ${res.error}`,
-          });
-        }
-      }
-    };
-    reader.readAsText(file);
   };
 
   // Sync with live FastAPI backend on mount if running
@@ -779,7 +847,7 @@ export default function App() {
             ["Alerts", "⚠"],
             ["Analytics", "◒"],
             ["Learning Loop", "🔄"],
-            ["Dataset Hub", "📁"],
+            ["CSV AI Predictor", "📊"],
           ].map(([label, icon]) => (
             <button
               key={label}
@@ -788,7 +856,7 @@ export default function App() {
             >
               <span className="nav-icon">{icon}</span>
               <span>{label}</span>
-              {label === "Dataset Hub" && (
+              {label === "CSV AI Predictor" && (
                 <span className="nav-badge" style={{ background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa" }}>
                   {projects.length}
                 </span>
@@ -923,11 +991,14 @@ export default function App() {
               <span>{backendLive ? "🟢 Live DB & API" : "🟡 Standalone Mode"}</span>
             </div>
             <button
-              className={`quick-dataset-btn ${activeNav === "Dataset Hub" ? "active" : ""}`}
-              onClick={() => setActiveNav("Dataset Hub")}
-              title="MoSPI Master Datasets, CSV/JSON Exports & Ingestion Studio"
+              className={`quick-dataset-btn ${activeNav === "CSV AI Predictor" || activeNav === "Dataset Hub" ? "active" : ""}`}
+              onClick={() => {
+                setActiveNav("CSV AI Predictor");
+                setDatasetActiveTab("predictor");
+              }}
+              title="Drag & Drop CSV dataset to run retrained ML delay models, health scores & fraud checks"
             >
-              📁 Dataset Hub ({projects.length})
+              📊 Drag & Drop CSV Predictor
             </button>
             <button className="quick-ai-btn" onClick={() => setChatOpen(true)}>
               🤖 Ask AI Assistant
@@ -3398,13 +3469,13 @@ export default function App() {
           {/* ===================================================
               VIEW 11: DATASET HUB & INGESTION STUDIO
           ==================================================== */}
-          {activeNav === "Dataset Hub" && (
+          {(activeNav === "CSV AI Predictor" || activeNav === "Dataset Hub") && (
             <div className="dataset-hub-view">
               <div className="view-header">
                 <div>
-                  <h1>📁 MoSPI Master Datasets & Ingestion Studio</h1>
+                  <h1>📊 CSV AI Predictor & Dataset Hub</h1>
                   <p>
-                    Production-grade infrastructure showcase datasets (JSON & CSV), 1-click real-time memory injector, custom data loader, and interactive schema dictionary.
+                    Drag & drop your infrastructure project dataset (CSV or JSON) to instantly run retrained ML delay models, composite health indexing, and AI recovery blueprints.
                   </p>
                 </div>
                 <div className="header-actions">
@@ -3481,22 +3552,22 @@ export default function App() {
               {/* DATASET HUB SUB-NAV TABS */}
               <div className="dataset-subnav-tabs">
                 <button
+                  className={`subnav-tab ${datasetActiveTab === "predictor" ? "active" : ""}`}
+                  onClick={() => setDatasetActiveTab("predictor")}
+                >
+                  ⚡ Drag & Drop CSV AI Predictor
+                </button>
+                <button
                   className={`subnav-tab ${datasetActiveTab === "studio" ? "active" : ""}`}
                   onClick={() => setDatasetActiveTab("studio")}
                 >
-                  📥 Export & Showcase Downloads
-                </button>
-                <button
-                  className={`subnav-tab ${datasetActiveTab === "import" ? "active" : ""}`}
-                  onClick={() => setDatasetActiveTab("import")}
-                >
-                  🚀 Custom Data Ingestion Studio
+                  📥 Download Datasets (CSV & JSON)
                 </button>
                 <button
                   className={`subnav-tab ${datasetActiveTab === "preview" ? "active" : ""}`}
                   onClick={() => setDatasetActiveTab("preview")}
                 >
-                  🔍 Interactive Data Explorer ({previewTable === "projects" ? projects.length : previewTable === "contractors" ? contractors.length : milestones.length})
+                  🔍 Live Data Explorer ({previewTable === "projects" ? projects.length : previewTable === "contractors" ? contractors.length : milestones.length})
                 </button>
                 <button
                   className={`subnav-tab ${datasetActiveTab === "dictionary" ? "active" : ""}`}
@@ -3506,7 +3577,287 @@ export default function App() {
                 </button>
               </div>
 
-              {/* TAB 1: EXPORT & SHOWCASE DOWNLOADS */}
+              {/* TAB 1: DRAG & DROP CSV AI PREDICTOR */}
+              {datasetActiveTab === "predictor" && (
+                <div className="dataset-predictor-tab">
+                  <div className="predictor-hero-card">
+                    <div className="hero-text">
+                      <span className="hero-badge">🤖 TRAINED ML INFERENCE PIPELINE</span>
+                      <h2>Upload Your Project Dataset (CSV / JSON) for Instant AI Predictions</h2>
+                      <p>
+                        Drag and drop your infrastructure projects CSV file below. MoSPI’s retrained ML ensemble (Random Forest Delay Regressor, 6-Component Composite Health Engine, Isolation Forest Anomaly Screener, and AI Doom Risk Assessor) will immediately evaluate every record and generate delay forecasts, failure probabilities, and recovery recommendations.
+                      </p>
+                    </div>
+
+                    {/* BIG DRAG AND DROP ZONE */}
+                    <div
+                      className={`drag-drop-zone ${isDragging ? "dragging" : ""}`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(true);
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(false);
+                        const file = e.dataTransfer?.files?.[0];
+                        if (file) processUploadedFile(file);
+                      }}
+                    >
+                      <input
+                        type="file"
+                        id="csv-file-upload-input"
+                        accept=".csv,.json"
+                        onChange={handleFileUpload}
+                        style={{ display: "none" }}
+                      />
+                      <div className="drop-content">
+                        <div className="drop-icon-animated">{isDragging ? "🎯" : "📊"}</div>
+                        <h3>
+                          {isDragging ? "Drop your CSV file here now to run ML models!" : "Drag & Drop your CSV or JSON Dataset here"}
+                        </h3>
+                        <p>
+                          Supports standard CSV with columns: <code>name</code>, <code>department</code>, <code>approved_budget</code>, <code>expenditure</code>, <code>physical_progress</code>, etc.
+                        </p>
+                        <div className="drop-action-buttons">
+                          <label htmlFor="csv-file-upload-input" className="btn-browse-file">
+                            📁 Browse & Select CSV File
+                          </label>
+                          <button
+                            type="button"
+                            className="btn-sample-test"
+                            onClick={handleLoadSampleCsvToPredictor}
+                          >
+                            ⚡ Try with 20-Project MoSPI Sample CSV
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-sample-download"
+                            onClick={() => downloadBlob(exportProjectsToCsv(EXPANDED_SHOWCASE_DATASET), "mospi_projects_template.csv", "text/csv")}
+                          >
+                            📥 Download Sample CSV Template
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* BATCH ML PREDICTION RESULTS IF AVAILABLE */}
+                  {uploadedPredictions && uploadedPredictions.length > 0 && (
+                    <div className="batch-predictions-card">
+                      <div className="batch-header">
+                        <div>
+                          <span className="badge-model on-track">✓ ML Inference Completed</span>
+                          <h3>Batch Predictions for &lsquo;{uploadedFileName}&rsquo;</h3>
+                          <p>
+                            Evaluated {uploadedPredictions.length} projects across Random Forest, Health Indexing, and Salvage models in real time.
+                          </p>
+                        </div>
+                        <div className="batch-header-actions">
+                          <button
+                            className="btn-download primary"
+                            onClick={() => downloadBlob(exportPredictionsToCsv(uploadedPredictions), `predictions_${uploadedFileName || "dataset"}.csv`, "text/csv")}
+                            title="Download the uploaded dataset enriched with ML predicted delays, risk levels, and health scores"
+                          >
+                            📥 Download Predictions CSV
+                          </button>
+                          <button
+                            className="btn-primary-glow"
+                            onClick={handleApplyPredictionsToPlatform}
+                            title="Set these evaluated projects as the active dataset across all dashboards and GIS maps"
+                          >
+                            ⚡ Set as Active Platform Projects
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* STATS STRIP */}
+                      {uploadedStats && (
+                        <div className="kpi-grid prediction-kpis">
+                          <div className="kpi-card">
+                            <span className="kpi-label">PROJECTS EVALUATED</span>
+                            <div className="kpi-value">{uploadedStats.count}</div>
+                            <div className="kpi-sub">Parsed and scored by ML models</div>
+                          </div>
+                          <div className={`kpi-card ${uploadedStats.totalAtRisk > 0 ? "delayed" : "on-track"}`}>
+                            <span className="kpi-label">PREDICTED AT RISK</span>
+                            <div className="kpi-value">{uploadedStats.totalAtRisk} Projects</div>
+                            <div className="kpi-sub">High probability of schedule breach</div>
+                          </div>
+                          <div className="kpi-card">
+                            <span className="kpi-label">AVG PREDICTED SLIPPAGE</span>
+                            <div className="kpi-value">+{uploadedStats.avgDelay} Days</div>
+                            <div className="kpi-sub">Regression forecast across portfolio</div>
+                          </div>
+                          <div className={`kpi-card ${uploadedStats.avgHealth < 60 ? "critical" : "on-track"}`}>
+                            <span className="kpi-label">AVG PORTFOLIO HEALTH</span>
+                            <div className="kpi-value">{uploadedStats.avgHealth}/100</div>
+                            <div className="kpi-sub">Composite health index</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* DETAILED RESULTS TABLE */}
+                      <div className="table-container" style={{ marginTop: "18px" }}>
+                        <table className="projects-table">
+                          <thead>
+                            <tr>
+                              <th>ID</th>
+                              <th>Project & Ministry</th>
+                              <th>Budget & Spend</th>
+                              <th>Physical vs Financial</th>
+                              <th>Contractor</th>
+                              <th>🤖 ML Predicted Delay</th>
+                              <th>🩺 AI Health Score</th>
+                              <th>🛟 Doom & Recovery Verdict</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {uploadedPredictions.map(({ project: p, risk, doom, anomaly }) => (
+                              <tr key={p.id}>
+                                <td><span className="id-badge">#{p.id}</span></td>
+                                <td>
+                                  <strong>{p.name}</strong>
+                                  <div style={{ display: "flex", gap: "6px", marginTop: "4px" }}>
+                                    <span className="tag-dept">{p.department}</span>
+                                    <small style={{ color: "#64748b" }}>{p.location}</small>
+                                  </div>
+                                </td>
+                                <td>
+                                  <strong>{money(p.approved_budget)}</strong>
+                                  <small style={{ display: "block", color: "#64748b" }}>Spend: {money(p.expenditure)}</small>
+                                </td>
+                                <td>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: "100px" }}>
+                                    <div className="mini-progress-box">
+                                      <span>Phys: {p.physical_progress}%</span>
+                                      <div className="mini-bar"><div className="mini-fill good" style={{ width: `${p.physical_progress}%` }} /></div>
+                                    </div>
+                                    <div className="mini-progress-box">
+                                      <span>Fin: {p.financial_progress}%</span>
+                                      <div className="mini-bar"><div className="mini-fill" style={{ width: `${p.financial_progress}%` }} /></div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="contractor-pill">{p.contractor_name || "Unassigned"}</span>
+                                </td>
+                                <td>
+                                  <span className={`status-tag ${risk.riskLevel === "CRITICAL" ? "critical" : risk.riskLevel === "HIGH" ? "delayed" : risk.riskLevel === "MEDIUM" ? "at-risk" : "on-track"}`}>
+                                    {risk.estimatedDelayDays > 0 ? `+${risk.estimatedDelayDays}d Delay (${risk.riskLevel})` : "✓ On Track (0d)"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <strong style={{ fontSize: "1.05rem", color: risk.healthScore < 50 ? "#dc2626" : risk.healthScore < 75 ? "#d97706" : "#059669" }}>
+                                      {risk.healthScore}/100
+                                    </strong>
+                                    <span className={`status-tag ${risk.healthCategory.toLowerCase()}`}>
+                                      {risk.healthCategory}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div style={{ fontSize: "0.82rem" }}>
+                                    <span className={`status-tag ${doom.doom_category === "CRITICAL_DOOM" ? "critical" : doom.doom_category === "ELEVATED_RISK" ? "delayed" : "on-track"}`}>
+                                      Doom: {doom.doom_score}% ({doom.doom_category.replace(/_/g, " ")})
+                                    </span>
+                                    {doom.recommended_salvage_actions && doom.recommended_salvage_actions.length > 0 && (
+                                      <small style={{ display: "block", color: "#2563eb", marginTop: "4px", fontWeight: 600 }}>
+                                        ↳ {doom.recommended_salvage_actions[0].title}
+                                      </small>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="quick-table-actions">
+                                    <button
+                                      className="btn-action-mini salvage"
+                                      onClick={() => {
+                                        setActiveNav("Rescue & Salvage");
+                                        setSelectedSalvageProjectId(p.id);
+                                      }}
+                                    >
+                                      🛟 Salvage Plan
+                                    </button>
+                                    <button
+                                      className="btn-action-mini"
+                                      onClick={() => {
+                                        setSelectedProject(p);
+                                      }}
+                                    >
+                                      🔍 Deep Risk
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ADVANCED RAW TEXT INGESTION */}
+                  <div className="advanced-paste-card">
+                    <h4>📝 Or Paste Raw CSV / JSON Data Directly</h4>
+                    <div className="template-button-row">
+                      <span>Quick Load:</span>
+                      <button
+                        type="button"
+                        className="btn-template"
+                        onClick={() => setCustomInputText(exportProjectsToCsv(projects))}
+                      >
+                        Load Projects CSV Template
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-template"
+                        onClick={() => setCustomInputText(exportMasterJson())}
+                      >
+                        Load Master JSON Template
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-template clear"
+                        onClick={() => setCustomInputText("")}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <textarea
+                      className="form-control code-textarea"
+                      rows={8}
+                      placeholder="Paste CSV rows here: id,name,department,location,approved_budget,expenditure,physical_progress,financial_progress..."
+                      value={customInputText}
+                      onChange={(e) => setCustomInputText(e.target.value)}
+                    />
+                    <div style={{ marginTop: "12px" }}>
+                      <button
+                        className="btn-primary-glow"
+                        onClick={handleCustomDatasetImport}
+                        disabled={!customInputText.trim()}
+                      >
+                        🚀 Run AI Inference on Pasted Data
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: EXPORT & SHOWCASE DOWNLOADS */}
               {datasetActiveTab === "studio" && (
                 <div className="dataset-studio-tab">
                   <div className="export-cards-grid">
@@ -3657,118 +4008,6 @@ export default function App() {
                       <span>✓ Auto-migrates schema if missing</span>
                       <span>✓ Verifies FK integrity across Contractors & Milestones</span>
                       <span>✓ Refreshes SQLite DB in &lt; 0.1s</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 2: CUSTOM DATA INGESTION STUDIO */}
-              {datasetActiveTab === "import" && (
-                <div className="dataset-import-tab">
-                  <div className="import-layout-grid">
-                    <div className="import-form-card">
-                      <h3>🚀 Ingest Custom Data into MoSPI Platform</h3>
-                      <p className="subtext">
-                        Upload a file or paste custom JSON or CSV data. Once validated and injected, the entire application immediately runs predictive delay models, contractor fraud vetting, and recovery blueprints on your custom dataset.
-                      </p>
-
-                      {/* FILE UPLOAD ZONE */}
-                      <div className="file-dropzone">
-                        <input
-                          type="file"
-                          id="dataset-file-input"
-                          accept=".json,.csv"
-                          onChange={handleFileUpload}
-                          style={{ display: "none" }}
-                        />
-                        <label htmlFor="dataset-file-input" className="dropzone-label">
-                          <span className="upload-icon">📁</span>
-                          <strong>Choose a JSON or CSV file</strong>
-                          <span>or drag & drop here (Supports .json, .csv)</span>
-                        </label>
-                      </div>
-
-                      {/* QUICK TEMPLATE LOADERS */}
-                      <div className="template-button-row">
-                        <span>Quick Load:</span>
-                        <button
-                          type="button"
-                          className="btn-template"
-                          onClick={() => setCustomInputText(exportMasterJson())}
-                        >
-                          Load Full 20-Project JSON Template
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-template"
-                          onClick={() => setCustomInputText(exportProjectsToCsv(projects))}
-                        >
-                          Load Projects CSV Template
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-template clear"
-                          onClick={() => setCustomInputText("")}
-                        >
-                          Clear
-                        </button>
-                      </div>
-
-                      {/* TEXTAREA FOR RAW DATA */}
-                      <div className="form-group">
-                        <label>Paste JSON or CSV Data:</label>
-                        <textarea
-                          className="form-control code-textarea"
-                          rows={14}
-                          placeholder="Paste JSON array/object or CSV text here with headers: id, name, department, location, approved_budget, expenditure, physical_progress, etc."
-                          value={customInputText}
-                          onChange={(e) => setCustomInputText(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="import-actions">
-                        <button
-                          className="btn-primary-glow"
-                          onClick={handleCustomDatasetImport}
-                          disabled={!customInputText.trim()}
-                        >
-                          🚀 Validate & Inject into Platform
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="import-info-card">
-                      <h4>💡 How Ingestion Dynamically Powers the Suite</h4>
-                      <div className="info-step-list">
-                        <div className="info-step">
-                          <span className="step-num">1</span>
-                          <div>
-                            <strong>Instant AI Delay Inference</strong>
-                            <p>Gradient Boosting and Random Forest algorithms predict slippage days and probability of breach based on financial-physical progress divergence.</p>
-                          </div>
-                        </div>
-                        <div className="info-step">
-                          <span className="step-num">2</span>
-                          <div>
-                            <strong>Contractor Forensic Screening</strong>
-                            <p>Assigned contractor IDs are cross-referenced with CIN status, MCA filings, and past delivery track record to flag shell risk and ghost labor.</p>
-                          </div>
-                        </div>
-                        <div className="info-step">
-                          <span className="step-num">3</span>
-                          <div>
-                            <strong>Dynamic Health Indexing (0–100)</strong>
-                            <p>Composite weighting evaluates Schedule, Physical, Financial, Milestones, Resources, and Contractor Health for every imported project.</p>
-                          </div>
-                        </div>
-                        <div className="info-step">
-                          <span className="step-num">4</span>
-                          <div>
-                            <strong>Automated Recovery Blueprints</strong>
-                            <p>Any project falling into AT_RISK or DELAYED status generates customized 8-point intervention blueprints in the Rescue & Salvage tab.</p>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>

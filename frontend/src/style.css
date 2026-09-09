@@ -5950,31 +5950,223 @@ footer {
   padding: 24px;
 }
 
-.file-dropzone {
-  border: 2px dashed #cbd5e1;
-  border-radius: 10px;
-  padding: 28px;
-  text-align: center;
-  background: #f8fafc;
-  margin-bottom: 18px;
-  transition: border-color 0.2s ease, background 0.2s ease;
+/* DRAG & DROP CSV AI PREDICTOR */
+.dataset-predictor-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.file-dropzone:hover {
-  border-color: #3b82f6;
+.predictor-hero-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 26px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.hero-text {
+  margin-bottom: 20px;
+}
+
+.hero-badge {
+  display: inline-block;
   background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
 
-.dropzone-label {
+.hero-text h2 {
+  font-size: 1.35rem;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  font-weight: 700;
+}
+
+.hero-text p {
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 900px;
+}
+
+.drag-drop-zone {
+  border: 2px dashed #94a3b8;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 38px 24px;
+  text-align: center;
+  transition: all 0.25s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.drag-drop-zone:hover {
+  border-color: #3b82f6;
+  background: #f0f7ff;
+}
+
+.drag-drop-zone.dragging {
+  border-color: #2563eb;
+  border-style: solid;
+  background: #eff6ff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+  transform: scale(1.01);
+}
+
+.drop-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  gap: 8px;
 }
 
-.upload-icon {
-  font-size: 2rem;
+.drop-icon-animated {
+  font-size: 3rem;
+  margin-bottom: 4px;
+  transition: transform 0.2s ease;
+}
+
+.drag-drop-zone.dragging .drop-icon-animated {
+  transform: scale(1.2) rotate(10deg);
+}
+
+.drop-content h3 {
+  font-size: 1.2rem;
+  color: #0f172a;
+  margin: 0;
+  font-weight: 700;
+}
+
+.drop-content p {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin: 0 0 16px 0;
+  max-width: 600px;
+}
+
+.drop-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-browse-file {
+  background: #2563eb;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-browse-file:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.btn-sample-test {
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid #1e293b;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-sample-test:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+.btn-sample-download {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-sample-download:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* BATCH PREDICTIONS DISPLAY */
+.batch-predictions-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 26px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.batch-header h3 {
+  font-size: 1.25rem;
+  color: #0f172a;
+  margin: 6px 0 4px 0;
+  font-weight: 700;
+}
+
+.batch-header p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.batch-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.prediction-kpis {
+  margin-bottom: 8px;
+}
+
+.advanced-paste-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+
+.advanced-paste-card h4 {
+  font-size: 1.05rem;
+  color: #0f172a;
+  margin: 0 0 12px 0;
 }
 
 .template-button-row {
@@ -6019,34 +6211,6 @@ footer {
   font-size: 0.82rem;
   line-height: 1.4;
   white-space: pre;
-}
-
-.info-step-list {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-top: 18px;
-}
-
-.info-step {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.step-num {
-  width: 28px;
-  height: 28px;
-  background: #eff6ff;
-  color: #2563eb;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.85rem;
-  border: 1px solid #bfdbfe;
-  flex-shrink: 0;
 }
 
 .info-step strong {
