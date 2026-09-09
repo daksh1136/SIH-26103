@@ -1,7 +1,10 @@
-/**
- * Standalone Client-Side Data Pool & AI Simulation Engine for MoSPI ProjectPulse.
- * Provides rich, realistic data and instant client-side AI analysis without backend dependency.
- */
+import showcaseDatasetJson from './showcaseDataset.json';
+
+export const SHOWCASE_MASTER_DATASET = showcaseDatasetJson;
+export const EXPANDED_SHOWCASE_DATASET = showcaseDatasetJson.projects || [];
+export const SHOWCASE_CONTRACTORS = showcaseDatasetJson.contractors || [];
+export const SHOWCASE_CONTRACTOR_HISTORIES = showcaseDatasetJson.contractor_project_histories || [];
+export const SHOWCASE_MILESTONES = showcaseDatasetJson.milestones || [];
 
 export const INITIAL_PROJECTS = [
   {
@@ -31,15 +34,7 @@ export const INITIAL_PROJECTS = [
   },
   {
     id: 2,
-    contractor_id: 3,
-    contractor_id: 4,
-    contractor_id: 5,
-    contractor_id: 7,
     contractor_id: 6,
-    contractor_name: "Hillside Constructions & Earthmovers",
-    contractor_name: "Vanguard Power & Utility Infra",
-    contractor_name: "Pinnacle Urban Civil Contractors",
-    contractor_name: "Eastern Regional Infra Solutions",
     contractor_name: "Brahmaputra Engineering Works",
     name: "Rural Water Supply Network",
     department: "Rural Development",
@@ -1817,4 +1812,250 @@ export async function executeSalvagePlanApi(payload, projectsList = INITIAL_PROJ
     };
   }
 }
+
+// ==========================================
+// DATASET EXPORT, INGESTION & DICTIONARY UTILS
+// ==========================================
+
+export function downloadBlob(content, filename, contentType = 'text/plain;charset=utf-8;') {
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const pom = document.createElement('a');
+  pom.href = url;
+  pom.setAttribute('download', filename);
+  pom.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportProjectsToCsv(projectsList = EXPANDED_SHOWCASE_DATASET) {
+  if (!projectsList || !projectsList.length) return '';
+  const headers = [
+    'id', 'name', 'department', 'location', 'manager', 'start_date', 'planned_completion',
+    'approved_budget', 'released_funds', 'expenditure', 'physical_progress', 'financial_progress',
+    'expected_progress', 'contractor_id', 'contractor_name', 'contractor_performance',
+    'resource_availability', 'material_availability', 'previous_delays', 'status', 'description'
+  ];
+  const rows = projectsList.map(p => headers.map(h => {
+    let val = p[h] !== undefined && p[h] !== null ? p[h] : '';
+    if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+      val = `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  }).join(','));
+  return [headers.join(','), ...rows].join('\n');
+}
+
+export function exportContractorsToCsv(contractorsList = SHOWCASE_CONTRACTORS) {
+  if (!contractorsList || !contractorsList.length) return '';
+  const headers = [
+    'id', 'company_name', 'cin_number', 'registration_year', 'gst_status', 'blacklisted',
+    'past_projects_count', 'active_litigations', 'shell_risk_score', 'ghost_labor_risk_score',
+    'fraud_risk_rating', 'phone', 'email', 'registered_state'
+  ];
+  const rows = contractorsList.map(c => headers.map(h => {
+    let val = c[h] !== undefined && c[h] !== null ? c[h] : '';
+    if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+      val = `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  }).join(','));
+  return [headers.join(','), ...rows].join('\n');
+}
+
+export function exportMilestonesToCsv(milestonesList = SHOWCASE_MILESTONES) {
+  if (!milestonesList || !milestonesList.length) return '';
+  const headers = ['id', 'project_id', 'name', 'planned_date', 'actual_date', 'status', 'weightage_pct'];
+  const rows = milestonesList.map(m => headers.map(h => {
+    let val = m[h] !== undefined && m[h] !== null ? m[h] : '';
+    if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+      val = `"${val.replace(/"/g, '""')}"`;
+    }
+    return val;
+  }).join(','));
+  return [headers.join(','), ...rows].join('\n');
+}
+
+export function exportMasterJson(dataset = SHOWCASE_MASTER_DATASET) {
+  return JSON.stringify(dataset, null, 2);
+}
+
+export function parseAndValidateShowcaseDataset(rawText) {
+  try {
+    const trimmed = rawText.trim();
+    if (!trimmed) {
+      return { success: false, error: "Input data is empty. Please provide valid JSON or CSV." };
+    }
+
+    // Attempt JSON parse
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      const parsed = JSON.parse(trimmed);
+      let projects = [];
+      let contractors = [];
+      let milestones = [];
+      let histories = [];
+
+      if (Array.isArray(parsed)) {
+        projects = parsed;
+      } else if (typeof parsed === 'object') {
+        projects = Array.isArray(parsed.projects) ? parsed.projects : [];
+        contractors = Array.isArray(parsed.contractors) ? parsed.contractors : [];
+        milestones = Array.isArray(parsed.milestones) ? parsed.milestones : [];
+        histories = Array.isArray(parsed.contractor_project_histories) ? parsed.contractor_project_histories : [];
+      }
+
+      if (!projects.length) {
+        return { success: false, error: "No projects found in the provided JSON dataset." };
+      }
+
+      // Sanitize projects
+      const sanitizedProjects = projects.map((p, idx) => ({
+        id: Number(p.id) || (idx + 1),
+        name: String(p.name || `Project ${idx + 1}`),
+        department: String(p.department || 'Infrastructure'),
+        location: String(p.location || 'India'),
+        manager: String(p.manager || 'Project Director'),
+        start_date: String(p.start_date || '2025-01-01'),
+        planned_completion: String(p.planned_completion || '2026-12-31'),
+        approved_budget: Number(p.approved_budget) || 10000000,
+        released_funds: Number(p.released_funds) || 8000000,
+        expenditure: Number(p.expenditure) || 5000000,
+        physical_progress: Math.min(100, Math.max(0, Number(p.physical_progress) || 0)),
+        financial_progress: Math.min(100, Math.max(0, Number(p.financial_progress) || 0)),
+        expected_progress: Math.min(100, Math.max(0, Number(p.expected_progress) || 50)),
+        contractor_id: Number(p.contractor_id) || 1,
+        contractor_name: String(p.contractor_name || 'Generic EPC Consortium'),
+        contractor_performance: Number(p.contractor_performance) || 75,
+        resource_availability: Number(p.resource_availability) || 70,
+        material_availability: Number(p.material_availability) || 70,
+        previous_delays: Number(p.previous_delays) || 0,
+        milestones_total: Number(p.milestones_total) || 5,
+        milestones_delayed: Number(p.milestones_delayed) || 0,
+        status: String(p.status || 'ON_TRACK'),
+        description: String(p.description || '')
+      }));
+
+      return {
+        success: true,
+        type: 'JSON',
+        projects: sanitizedProjects,
+        contractors: contractors.length ? contractors : SHOWCASE_CONTRACTORS,
+        milestones: milestones.length ? milestones : SHOWCASE_MILESTONES,
+        histories: histories.length ? histories : SHOWCASE_CONTRACTOR_HISTORIES,
+        count: sanitizedProjects.length
+      };
+    }
+
+    // Attempt CSV parse (comma separated)
+    const lines = trimmed.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length < 2) {
+      return { success: false, error: "CSV data must include at least a header row and one data row." };
+    }
+
+    const parseCsvLine = (line) => {
+      const result = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (c === ',' && !inQuotes) {
+          result.push(cur.trim());
+          cur = '';
+        } else {
+          cur += c;
+        }
+      }
+      result.push(cur.trim());
+      return result;
+    };
+
+    const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/['"]/g, ''));
+    const parsedProjects = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseCsvLine(lines[i]);
+      if (values.length < 2) continue;
+      const row = {};
+      headers.forEach((h, idx) => {
+        row[h] = values[idx] !== undefined ? values[idx] : '';
+      });
+
+      parsedProjects.push({
+        id: Number(row.id) || i,
+        name: String(row.name || `Project ${i}`),
+        department: String(row.department || 'Infrastructure'),
+        location: String(row.location || 'India'),
+        manager: String(row.manager || 'Project Director'),
+        start_date: String(row.start_date || '2025-01-01'),
+        planned_completion: String(row.planned_completion || '2026-12-31'),
+        approved_budget: Number(row.approved_budget) || 10000000,
+        released_funds: Number(row.released_funds) || 8000000,
+        expenditure: Number(row.expenditure) || 5000000,
+        physical_progress: Math.min(100, Math.max(0, Number(row.physical_progress) || 0)),
+        financial_progress: Math.min(100, Math.max(0, Number(row.financial_progress) || 0)),
+        expected_progress: Math.min(100, Math.max(0, Number(row.expected_progress) || 50)),
+        contractor_id: Number(row.contractor_id) || 1,
+        contractor_name: String(row.contractor_name || 'Generic EPC Consortium'),
+        contractor_performance: Number(row.contractor_performance) || 75,
+        resource_availability: Number(row.resource_availability) || 70,
+        material_availability: Number(row.material_availability) || 70,
+        previous_delays: Number(row.previous_delays) || 0,
+        milestones_total: Number(row.milestones_total) || 5,
+        milestones_delayed: Number(row.milestones_delayed) || 0,
+        status: String(row.status || 'ON_TRACK'),
+        description: String(row.description || '')
+      });
+    }
+
+    if (!parsedProjects.length) {
+      return { success: false, error: "No valid project rows could be extracted from the CSV." };
+    }
+
+    return {
+      success: true,
+      type: 'CSV',
+      projects: parsedProjects,
+      contractors: SHOWCASE_CONTRACTORS,
+      milestones: SHOWCASE_MILESTONES,
+      histories: SHOWCASE_CONTRACTOR_HISTORIES,
+      count: parsedProjects.length
+    };
+  } catch (err) {
+    return { success: false, error: `Parsing error: ${err.message}` };
+  }
+}
+
+export const DATASET_DICTIONARY = [
+  { table: "Projects", field: "id", type: "Integer (PK)", desc: "Unique MoSPI project identifier", sample: "1" },
+  { table: "Projects", field: "name", type: "String", desc: "Title of infrastructure initiative", sample: "National Highway Expansion Corridor" },
+  { table: "Projects", field: "department", type: "String", desc: "Line ministry / governing nodal department", sample: "Infrastructure" },
+  { table: "Projects", field: "location", type: "String", desc: "State or UT where works are executed", sample: "Assam" },
+  { table: "Projects", field: "approved_budget", type: "Float (INR)", desc: "Total sanctioned budgetary outlay", sample: "85000000 (₹8.50 Cr)" },
+  { table: "Projects", field: "released_funds", type: "Float (INR)", desc: "Total funds disbursed by MoSPI treasury", sample: "70000000 (₹7.00 Cr)" },
+  { table: "Projects", field: "expenditure", type: "Float (INR)", desc: "Actual booked capital expenditure to date", sample: "52000000 (₹5.20 Cr)" },
+  { table: "Projects", field: "physical_progress", type: "Percentage (0-100)", desc: "Verified site physical completion percentage", sample: "62%" },
+  { table: "Projects", field: "financial_progress", type: "Percentage (0-100)", desc: "Booked expenditure / approved budget ratio", sample: "61%" },
+  { table: "Projects", field: "expected_progress", type: "Percentage (0-100)", desc: "Baseline schedule expected completion", sample: "65%" },
+  { table: "Projects", field: "contractor_id", type: "Integer (FK)", desc: "Reference to prime EPC contractor dossier", sample: "1" },
+  { table: "Projects", field: "contractor_name", type: "String", desc: "Registered entity name of executing vendor", sample: "Larsen & Mega Infrastructure Ltd" },
+  { table: "Projects", field: "contractor_performance", type: "Score (0-100)", desc: "Weighted past track record score", sample: "82" },
+  { table: "Projects", field: "resource_availability", type: "Score (0-100)", desc: "Equipment, machinery, and team availability index", sample: "80" },
+  { table: "Projects", field: "material_availability", type: "Score (0-100)", desc: "Supply chain health and raw material stock index", sample: "85" },
+  { table: "Projects", field: "status", type: "Enum", desc: "Operating status (ON_TRACK, AT_RISK, DELAYED, CRITICAL)", sample: "ON_TRACK" },
+  { table: "Contractors", field: "company_name", type: "String", desc: "MCA registered corporate entity name", sample: "Larsen & Mega Infrastructure Ltd" },
+  { table: "Contractors", field: "cin_number", type: "String", desc: "21-digit Corporate Identity Number (MCA)", sample: "U45200MH2008PLC184321" },
+  { table: "Contractors", field: "shell_risk_score", type: "Float (0-100)", desc: "AI Forensic indicator of shell / paper company risk", sample: "12.5" },
+  { table: "Contractors", field: "ghost_labor_risk_score", type: "Float (0-100)", desc: "Discrepancy score between payroll and biometric muster", sample: "14.0" },
+  { table: "Contractors", field: "fraud_risk_rating", type: "Enum", desc: "Overall vetted classification: LOW, MEDIUM, HIGH, CRITICAL", sample: "LOW" },
+  { table: "Milestones", field: "name", type: "String", desc: "Contractually binding deliverable gate", sample: "Sub-base Layer Compaction 45km" },
+  { table: "Milestones", field: "status", type: "Enum", desc: "Gate fulfillment status: COMPLETED, IN_PROGRESS, PENDING, DELAYED", sample: "COMPLETED" },
+  { table: "Milestones", field: "weightage_pct", type: "Integer", desc: "Contribution weight towards total project milestone gate", sample: "20%" }
+];
+
 

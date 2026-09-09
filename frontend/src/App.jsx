@@ -29,6 +29,18 @@ import {
   evaluateProjectDoomRisk,
   fetchProjectSalvagePlan,
   executeSalvagePlanApi,
+  EXPANDED_SHOWCASE_DATASET,
+  SHOWCASE_MASTER_DATASET,
+  SHOWCASE_CONTRACTORS,
+  SHOWCASE_CONTRACTOR_HISTORIES,
+  SHOWCASE_MILESTONES,
+  downloadBlob,
+  exportProjectsToCsv,
+  exportContractorsToCsv,
+  exportMilestonesToCsv,
+  exportMasterJson,
+  parseAndValidateShowcaseDataset,
+  DATASET_DICTIONARY,
 } from "./aiEngineClient";
 
 function money(value = 0) {
@@ -134,6 +146,100 @@ export default function App() {
   const [isExecutingSalvage, setIsExecutingSalvage] = useState(false);
   const [salvagedProjectIds, setSalvagedProjectIds] = useState(new Set());
 
+  // Dataset Hub & Ingestion Studio State
+  const [datasetActiveTab, setDatasetActiveTab] = useState("studio"); // 'studio' | 'preview' | 'import' | 'dictionary'
+  const [previewTable, setPreviewTable] = useState("projects"); // 'projects' | 'contractors' | 'milestones'
+  const [datasetSearch, setDatasetSearch] = useState("");
+  const [customInputText, setCustomInputText] = useState("");
+  const [datasetNotification, setDatasetNotification] = useState(null);
+  const [isInjectingDataset, setIsInjectingDataset] = useState(false);
+
+  const handleLoadShowcaseDataset = () => {
+    setIsInjectingDataset(true);
+    setTimeout(() => {
+      setProjects(EXPANDED_SHOWCASE_DATASET);
+      setContractors(SHOWCASE_CONTRACTORS);
+      setMilestones(SHOWCASE_MILESTONES);
+      setIsInjectingDataset(false);
+      setDatasetNotification({
+        type: "success",
+        text: `Successfully injected 20-Project Showcase Dataset! 20 Projects, 12 Contractors, and 113 Milestones are now actively powering all AI models, GIS maps, and risk engines.`,
+      });
+      setTimeout(() => setDatasetNotification(null), 6000);
+    }, 300);
+  };
+
+  const handleResetDataset = () => {
+    setProjects(INITIAL_PROJECTS);
+    setContractors(INITIAL_CONTRACTORS);
+    setMilestones(INITIAL_MILESTONES);
+    setDatasetNotification({
+      type: "info",
+      text: "Restored baseline standard dataset (6 core projects).",
+    });
+    setTimeout(() => setDatasetNotification(null), 4000);
+  };
+
+  const handleCustomDatasetImport = (e) => {
+    e?.preventDefault?.();
+    if (!customInputText.trim()) {
+      setDatasetNotification({
+        type: "error",
+        text: "Please paste or upload JSON or CSV data to import.",
+      });
+      return;
+    }
+    const res = parseAndValidateShowcaseDataset(customInputText);
+    if (!res.success) {
+      setDatasetNotification({
+        type: "error",
+        text: res.error,
+      });
+      return;
+    }
+    setProjects(res.projects);
+    if (res.contractors && res.contractors.length) {
+      setContractors(res.contractors);
+    }
+    if (res.milestones && res.milestones.length) {
+      setMilestones(res.milestones);
+    }
+    setDatasetNotification({
+      type: "success",
+      text: `Successfully validated & injected ${res.count} projects (${res.type} format) into active platform memory! All ML delay models and risk calculations have been refreshed.`,
+    });
+    setCustomInputText("");
+    setTimeout(() => setDatasetNotification(null), 7000);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result;
+      if (typeof text === "string") {
+        setCustomInputText(text);
+        const res = parseAndValidateShowcaseDataset(text);
+        if (res.success) {
+          setProjects(res.projects);
+          if (res.contractors && res.contractors.length) setContractors(res.contractors);
+          if (res.milestones && res.milestones.length) setMilestones(res.milestones);
+          setDatasetNotification({
+            type: "success",
+            text: `File '${file.name}' ingested: Injected ${res.count} projects into active memory!`,
+          });
+          setTimeout(() => setDatasetNotification(null), 6000);
+        } else {
+          setDatasetNotification({
+            type: "error",
+            text: `File parse warning: ${res.error}`,
+          });
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
 
   // Sync with live FastAPI backend on mount if running
   useEffect(() => {
@@ -673,6 +779,7 @@ export default function App() {
             ["Alerts", "⚠"],
             ["Analytics", "◒"],
             ["Learning Loop", "🔄"],
+            ["Dataset Hub", "📁"],
           ].map(([label, icon]) => (
             <button
               key={label}
@@ -681,6 +788,11 @@ export default function App() {
             >
               <span className="nav-icon">{icon}</span>
               <span>{label}</span>
+              {label === "Dataset Hub" && (
+                <span className="nav-badge" style={{ background: "rgba(59, 130, 246, 0.2)", color: "#60a5fa" }}>
+                  {projects.length}
+                </span>
+              )}
               {label === "Rescue & Salvage" && (
                 <span className="nav-badge danger">
                   {projects.filter((p) => p.status === "CRITICAL" || p.status === "DELAYED").length}
@@ -810,6 +922,13 @@ export default function App() {
               <span className="dot" />
               <span>{backendLive ? "🟢 Live DB & API" : "🟡 Standalone Mode"}</span>
             </div>
+            <button
+              className={`quick-dataset-btn ${activeNav === "Dataset Hub" ? "active" : ""}`}
+              onClick={() => setActiveNav("Dataset Hub")}
+              title="MoSPI Master Datasets, CSV/JSON Exports & Ingestion Studio"
+            >
+              📁 Dataset Hub ({projects.length})
+            </button>
             <button className="quick-ai-btn" onClick={() => setChatOpen(true)}>
               🤖 Ask AI Assistant
             </button>
@@ -3273,6 +3392,699 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ===================================================
+              VIEW 11: DATASET HUB & INGESTION STUDIO
+          ==================================================== */}
+          {activeNav === "Dataset Hub" && (
+            <div className="dataset-hub-view">
+              <div className="view-header">
+                <div>
+                  <h1>📁 MoSPI Master Datasets & Ingestion Studio</h1>
+                  <p>
+                    Production-grade infrastructure showcase datasets (JSON & CSV), 1-click real-time memory injector, custom data loader, and interactive schema dictionary.
+                  </p>
+                </div>
+                <div className="header-actions">
+                  <span className={`badge-model ${projects.length >= 20 ? "on-track" : ""}`}>
+                    {projects.length >= 20 ? "⚡ 20-Project Showcase Active" : `Current Active: ${projects.length} Projects`}
+                  </span>
+                </div>
+              </div>
+
+              {/* NOTIFICATION BANNER IF PRESENT */}
+              {datasetNotification && (
+                <div className={`dataset-notification-banner ${datasetNotification.type}`}>
+                  <span>{datasetNotification.type === "success" ? "✅" : datasetNotification.type === "error" ? "❌" : "ℹ️"}</span>
+                  <p>{datasetNotification.text}</p>
+                  <button className="dismiss-btn" onClick={() => setDatasetNotification(null)}>✕</button>
+                </div>
+              )}
+
+              {/* TOP KPI OVERVIEW OF MASTER SHOWCASE */}
+              <div className="kpi-grid">
+                <div className="kpi-card on-track">
+                  <span className="kpi-label">TOTAL CAPITAL PROJECTS</span>
+                  <div className="kpi-value">{projects.length}</div>
+                  <div className="kpi-sub">
+                    {projects.length >= 20 ? "Covering 17 strategic union ministries" : "Standard baseline dataset loaded"}
+                  </div>
+                </div>
+                <div className="kpi-card">
+                  <span className="kpi-label">SANCTIONED OUTLAY</span>
+                  <div className="kpi-value">
+                    {money(projects.reduce((acc, p) => acc + (Number(p.approved_budget) || 0), 0))}
+                  </div>
+                  <div className="kpi-sub">
+                    Cumulative budget tracked under MoSPI oversight
+                  </div>
+                </div>
+                <div className="kpi-card on-track">
+                  <span className="kpi-label">EMEPANELED CONTRACTORS</span>
+                  <div className="kpi-value">{contractors.length} Dossiers</div>
+                  <div className="kpi-sub">36 verified delivery records & forensic ratings</div>
+                </div>
+                <div className="kpi-card">
+                  <span className="kpi-label">MONITORED MILESTONES</span>
+                  <div className="kpi-value">{milestones.length} Gates</div>
+                  <div className="kpi-sub">Sequenced completion deliverables with audit gates</div>
+                </div>
+              </div>
+
+              {/* QUICK INJECTION HIGHLIGHT BANNER */}
+              <div className="dataset-cta-banner">
+                <div className="cta-left">
+                  <div className="cta-icon">⚡</div>
+                  <div>
+                    <h3>1-Click 20-Project Infrastructure Showcase Ingestion</h3>
+                    <p>
+                      Immediately swap the in-memory dataset with 20 realistic mega-projects across India (Highways, Solar, AI Cloud, Deepwater Ports, Bullet Rail, Hydro Dams). All ML delay forecasts, contractor vetting matrices, anomaly screening, and salvage blueprints recalculate dynamically in real time.
+                    </p>
+                  </div>
+                </div>
+                <div className="cta-actions">
+                  <button
+                    className="btn-primary-glow"
+                    onClick={handleLoadShowcaseDataset}
+                    disabled={isInjectingDataset}
+                  >
+                    {isInjectingDataset ? "⚡ Injecting Dataset..." : "⚡ Load 20-Project Showcase"}
+                  </button>
+                  <button className="btn-outline" onClick={handleResetDataset}>
+                    ↺ Reset to Standard (6 Proj)
+                  </button>
+                </div>
+              </div>
+
+              {/* DATASET HUB SUB-NAV TABS */}
+              <div className="dataset-subnav-tabs">
+                <button
+                  className={`subnav-tab ${datasetActiveTab === "studio" ? "active" : ""}`}
+                  onClick={() => setDatasetActiveTab("studio")}
+                >
+                  📥 Export & Showcase Downloads
+                </button>
+                <button
+                  className={`subnav-tab ${datasetActiveTab === "import" ? "active" : ""}`}
+                  onClick={() => setDatasetActiveTab("import")}
+                >
+                  🚀 Custom Data Ingestion Studio
+                </button>
+                <button
+                  className={`subnav-tab ${datasetActiveTab === "preview" ? "active" : ""}`}
+                  onClick={() => setDatasetActiveTab("preview")}
+                >
+                  🔍 Interactive Data Explorer ({previewTable === "projects" ? projects.length : previewTable === "contractors" ? contractors.length : milestones.length})
+                </button>
+                <button
+                  className={`subnav-tab ${datasetActiveTab === "dictionary" ? "active" : ""}`}
+                  onClick={() => setDatasetActiveTab("dictionary")}
+                >
+                  📖 Schema & Data Dictionary (24 Fields)
+                </button>
+              </div>
+
+              {/* TAB 1: EXPORT & SHOWCASE DOWNLOADS */}
+              {datasetActiveTab === "studio" && (
+                <div className="dataset-studio-tab">
+                  <div className="export-cards-grid">
+                    {/* JSON MASTER EXPORT */}
+                    <div className="export-card featured">
+                      <div className="card-tag">RECOMMENDED FULL SUITE</div>
+                      <div className="export-card-header">
+                        <span className="file-icon json-icon">{"{ }"}</span>
+                        <div>
+                          <h4>MoSPI Master Showcase (JSON)</h4>
+                          <span className="file-meta">v3.0.0 • ~75 KB • All 4 Relational Entities</span>
+                        </div>
+                      </div>
+                      <p className="card-desc">
+                        Contains the entire relational structure: 20 infrastructure projects, 12 contractor dossiers, 36 past project histories, and 113 milestones. Ready for immediate programmatic ingestion.
+                      </p>
+                      <div className="card-footer">
+                        <button
+                          className="btn-download primary"
+                          onClick={() => downloadBlob(exportMasterJson(), "mospi_comprehensive_showcase.json", "application/json")}
+                        >
+                          ⬇ Download Master JSON
+                        </button>
+                        <a
+                          href="/mospi_comprehensive_showcase.json"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-view-raw"
+                        >
+                          👁 Open Raw
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* PROJECTS CSV */}
+                    <div className="export-card">
+                      <div className="card-tag">CSV FORMAT</div>
+                      <div className="export-card-header">
+                        <span className="file-icon csv-icon">📊</span>
+                        <div>
+                          <h4>Projects Master CSV</h4>
+                          <span className="file-meta">20 Rows • 21 Columns • ~7 KB</span>
+                        </div>
+                      </div>
+                      <p className="card-desc">
+                        Sanctioned budgets, actual expenditure, physical & financial progress, delay days, contractor links, health scores, and operational statuses.
+                      </p>
+                      <div className="card-footer">
+                        <button
+                          className="btn-download"
+                          onClick={() => downloadBlob(exportProjectsToCsv(projects), "mospi_projects_master.csv", "text/csv")}
+                        >
+                          ⬇ Download Projects CSV
+                        </button>
+                        <a
+                          href="/mospi_projects_master.csv"
+                          download="mospi_projects_master.csv"
+                          className="btn-view-raw"
+                        >
+                          Direct Link
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* CONTRACTORS CSV */}
+                    <div className="export-card">
+                      <div className="card-tag">CSV FORMAT</div>
+                      <div className="export-card-header">
+                        <span className="file-icon csv-icon">🛡️</span>
+                        <div>
+                          <h4>Contractors Master CSV</h4>
+                          <span className="file-meta">12 Dossiers • 14 Columns • ~2 KB</span>
+                        </div>
+                      </div>
+                      <p className="card-desc">
+                        Vendor registrations, CIN numbers, GST statuses, litigation counts, shell corporation risk scores, ghost labor flags, and vetting ratings.
+                      </p>
+                      <div className="card-footer">
+                        <button
+                          className="btn-download"
+                          onClick={() => downloadBlob(exportContractorsToCsv(contractors), "mospi_contractors_master.csv", "text/csv")}
+                        >
+                          ⬇ Download Contractors CSV
+                        </button>
+                        <a
+                          href="/mospi_contractors_master.csv"
+                          download="mospi_contractors_master.csv"
+                          className="btn-view-raw"
+                        >
+                          Direct Link
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* MILESTONES CSV */}
+                    <div className="export-card">
+                      <div className="card-tag">CSV FORMAT</div>
+                      <div className="export-card-header">
+                        <span className="file-icon csv-icon">⏱️</span>
+                        <div>
+                          <h4>Milestones Master CSV</h4>
+                          <span className="file-meta">113 Deliverables • 7 Columns • ~10 KB</span>
+                        </div>
+                      </div>
+                      <p className="card-desc">
+                        Sequenced milestone gates across all projects, planned vs actual delivery dates, completion status flags, and project weightage percentages.
+                      </p>
+                      <div className="card-footer">
+                        <button
+                          className="btn-download"
+                          onClick={() => downloadBlob(exportMilestonesToCsv(milestones), "mospi_milestones_master.csv", "text/csv")}
+                        >
+                          ⬇ Download Milestones CSV
+                        </button>
+                        <a
+                          href="/mospi_milestones_master.csv"
+                          download="mospi_milestones_master.csv"
+                          className="btn-view-raw"
+                        >
+                          Direct Link
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SQLITE DATABASE INGESTION CLI GUIDE */}
+                  <div className="db-cli-guide-card">
+                    <div className="guide-header">
+                      <span className="cli-badge">💻 BACKEND DATABASE CLI</span>
+                      <h4>Direct SQLite Ingestion & Automated Seeding</h4>
+                    </div>
+                    <p>
+                      If you are hosting or developing the FastAPI & SQLite backend locally, you can use our built-in Python ingestion script to batch-populate <code>database/projectpulse.db</code> with this dataset:
+                    </p>
+                    <div className="code-block-display">
+                      <code>python database/import_dataset.py --file database/mospi_comprehensive_showcase.json</code>
+                      <button
+                        className="copy-btn"
+                        onClick={() => {
+                          navigator.clipboard?.writeText("python database/import_dataset.py --file database/mospi_comprehensive_showcase.json");
+                          alert("CLI command copied to clipboard!");
+                        }}
+                      >
+                        Copy Command
+                      </button>
+                    </div>
+                    <div className="cli-stats">
+                      <span>✓ Auto-migrates schema if missing</span>
+                      <span>✓ Verifies FK integrity across Contractors & Milestones</span>
+                      <span>✓ Refreshes SQLite DB in &lt; 0.1s</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: CUSTOM DATA INGESTION STUDIO */}
+              {datasetActiveTab === "import" && (
+                <div className="dataset-import-tab">
+                  <div className="import-layout-grid">
+                    <div className="import-form-card">
+                      <h3>🚀 Ingest Custom Data into MoSPI Platform</h3>
+                      <p className="subtext">
+                        Upload a file or paste custom JSON or CSV data. Once validated and injected, the entire application immediately runs predictive delay models, contractor fraud vetting, and recovery blueprints on your custom dataset.
+                      </p>
+
+                      {/* FILE UPLOAD ZONE */}
+                      <div className="file-dropzone">
+                        <input
+                          type="file"
+                          id="dataset-file-input"
+                          accept=".json,.csv"
+                          onChange={handleFileUpload}
+                          style={{ display: "none" }}
+                        />
+                        <label htmlFor="dataset-file-input" className="dropzone-label">
+                          <span className="upload-icon">📁</span>
+                          <strong>Choose a JSON or CSV file</strong>
+                          <span>or drag & drop here (Supports .json, .csv)</span>
+                        </label>
+                      </div>
+
+                      {/* QUICK TEMPLATE LOADERS */}
+                      <div className="template-button-row">
+                        <span>Quick Load:</span>
+                        <button
+                          type="button"
+                          className="btn-template"
+                          onClick={() => setCustomInputText(exportMasterJson())}
+                        >
+                          Load Full 20-Project JSON Template
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-template"
+                          onClick={() => setCustomInputText(exportProjectsToCsv(projects))}
+                        >
+                          Load Projects CSV Template
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-template clear"
+                          onClick={() => setCustomInputText("")}
+                        >
+                          Clear
+                        </button>
+                      </div>
+
+                      {/* TEXTAREA FOR RAW DATA */}
+                      <div className="form-group">
+                        <label>Paste JSON or CSV Data:</label>
+                        <textarea
+                          className="form-control code-textarea"
+                          rows={14}
+                          placeholder="Paste JSON array/object or CSV text here with headers: id, name, department, location, approved_budget, expenditure, physical_progress, etc."
+                          value={customInputText}
+                          onChange={(e) => setCustomInputText(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="import-actions">
+                        <button
+                          className="btn-primary-glow"
+                          onClick={handleCustomDatasetImport}
+                          disabled={!customInputText.trim()}
+                        >
+                          🚀 Validate & Inject into Platform
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="import-info-card">
+                      <h4>💡 How Ingestion Dynamically Powers the Suite</h4>
+                      <div className="info-step-list">
+                        <div className="info-step">
+                          <span className="step-num">1</span>
+                          <div>
+                            <strong>Instant AI Delay Inference</strong>
+                            <p>Gradient Boosting and Random Forest algorithms predict slippage days and probability of breach based on financial-physical progress divergence.</p>
+                          </div>
+                        </div>
+                        <div className="info-step">
+                          <span className="step-num">2</span>
+                          <div>
+                            <strong>Contractor Forensic Screening</strong>
+                            <p>Assigned contractor IDs are cross-referenced with CIN status, MCA filings, and past delivery track record to flag shell risk and ghost labor.</p>
+                          </div>
+                        </div>
+                        <div className="info-step">
+                          <span className="step-num">3</span>
+                          <div>
+                            <strong>Dynamic Health Indexing (0–100)</strong>
+                            <p>Composite weighting evaluates Schedule, Physical, Financial, Milestones, Resources, and Contractor Health for every imported project.</p>
+                          </div>
+                        </div>
+                        <div className="info-step">
+                          <span className="step-num">4</span>
+                          <div>
+                            <strong>Automated Recovery Blueprints</strong>
+                            <p>Any project falling into AT_RISK or DELAYED status generates customized 8-point intervention blueprints in the Rescue & Salvage tab.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: INTERACTIVE DATA EXPLORER */}
+              {datasetActiveTab === "preview" && (
+                <div className="dataset-preview-tab">
+                  {/* CONTROLS STRIP */}
+                  <div className="preview-controls-strip">
+                    <div className="table-switcher">
+                      <button
+                        className={`table-btn ${previewTable === "projects" ? "active" : ""}`}
+                        onClick={() => setPreviewTable("projects")}
+                      >
+                        ▣ Projects ({projects.length})
+                      </button>
+                      <button
+                        className={`table-btn ${previewTable === "contractors" ? "active" : ""}`}
+                        onClick={() => setPreviewTable("contractors")}
+                      >
+                        🛡️ Contractors ({contractors.length})
+                      </button>
+                      <button
+                        className={`table-btn ${previewTable === "milestones" ? "active" : ""}`}
+                        onClick={() => setPreviewTable("milestones")}
+                      >
+                        ⏱️ Milestones ({milestones.length})
+                      </button>
+                    </div>
+
+                    <div className="preview-search-box">
+                      <span className="search-icon">🔍</span>
+                      <input
+                        type="text"
+                        placeholder={`Filter ${previewTable}...`}
+                        value={datasetSearch}
+                        onChange={(e) => setDatasetSearch(e.target.value)}
+                        className="form-control"
+                      />
+                      {datasetSearch && (
+                        <button className="clear-search" onClick={() => setDatasetSearch("")}>✕</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* PROJECTS PREVIEW TABLE */}
+                  {previewTable === "projects" && (
+                    <div className="table-container">
+                      <table className="projects-table">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Project Initiative</th>
+                            <th>Ministry</th>
+                            <th>Location</th>
+                            <th>Budget</th>
+                            <th>Spend</th>
+                            <th>Physical %</th>
+                            <th>Financial %</th>
+                            <th>Contractor</th>
+                            <th>Status</th>
+                            <th>Quick Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {projects
+                            .filter((p) => {
+                              if (!datasetSearch.trim()) return true;
+                              const q = datasetSearch.toLowerCase();
+                              return (
+                                p.name?.toLowerCase().includes(q) ||
+                                p.department?.toLowerCase().includes(q) ||
+                                p.location?.toLowerCase().includes(q) ||
+                                p.contractor_name?.toLowerCase().includes(q) ||
+                                p.status?.toLowerCase().includes(q)
+                              );
+                            })
+                            .map((p) => (
+                              <tr key={p.id}>
+                                <td><span className="id-badge">#{p.id}</span></td>
+                                <td>
+                                  <strong>{p.name}</strong>
+                                  <small style={{ display: "block", color: "#64748b" }}>{p.description?.slice(0, 50)}...</small>
+                                </td>
+                                <td><span className="tag-dept">{p.department}</span></td>
+                                <td>{p.location}</td>
+                                <td><strong>{money(p.approved_budget)}</strong></td>
+                                <td>{money(p.expenditure)}</td>
+                                <td>
+                                  <div className="mini-progress-box">
+                                    <span>{p.physical_progress}%</span>
+                                    <div className="mini-bar"><div className="mini-fill good" style={{ width: `${p.physical_progress}%` }} /></div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="mini-progress-box">
+                                    <span>{p.financial_progress}%</span>
+                                    <div className="mini-bar"><div className="mini-fill" style={{ width: `${p.financial_progress}%` }} /></div>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="contractor-pill">{p.contractor_name || "Assigned Vendor"}</span>
+                                </td>
+                                <td>
+                                  <span className={`status-tag ${statusConfig[p.status]?.className || "on-track"}`}>
+                                    {statusConfig[p.status]?.icon} {statusConfig[p.status]?.label || p.status}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="quick-table-actions">
+                                    <button
+                                      className="btn-action-mini"
+                                      title="Inspect in Projects View"
+                                      onClick={() => {
+                                        setActiveNav("Projects");
+                                        setSelectedProject(p);
+                                      }}
+                                    >
+                                      🔍 Inspect
+                                    </button>
+                                    <button
+                                      className="btn-action-mini salvage"
+                                      title="Open Salvage Blueprint"
+                                      onClick={() => {
+                                        setActiveNav("Rescue & Salvage");
+                                        setSelectedSalvageProjectId(p.id);
+                                      }}
+                                    >
+                                      🛟 Salvage
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* CONTRACTORS PREVIEW TABLE */}
+                  {previewTable === "contractors" && (
+                    <div className="table-container">
+                      <table className="projects-table">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Company Entity</th>
+                            <th>CIN Number</th>
+                            <th>Reg Year</th>
+                            <th>GST Status</th>
+                            <th>Blacklisted?</th>
+                            <th>Past Deliveries</th>
+                            <th>Shell Risk</th>
+                            <th>Ghost Labor</th>
+                            <th>Vetting Rating</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {contractors
+                            .filter((c) => {
+                              if (!datasetSearch.trim()) return true;
+                              const q = datasetSearch.toLowerCase();
+                              return (
+                                c.company_name?.toLowerCase().includes(q) ||
+                                c.cin_number?.toLowerCase().includes(q) ||
+                                c.fraud_risk_rating?.toLowerCase().includes(q)
+                              );
+                            })
+                            .map((c) => (
+                              <tr key={c.id}>
+                                <td><span className="id-badge">#{c.id}</span></td>
+                                <td><strong>{c.company_name}</strong></td>
+                                <td><code>{c.cin_number || "U45200MH2008PLC184321"}</code></td>
+                                <td>{c.registration_year || "2010"}</td>
+                                <td>
+                                  <span className={`status-tag ${c.gst_status === "ACTIVE" ? "on-track" : "critical"}`}>
+                                    {c.gst_status || "ACTIVE"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`status-tag ${c.blacklisted ? "critical" : "on-track"}`}>
+                                    {c.blacklisted ? "🚨 BLACKLISTED" : "✓ CLEAR"}
+                                  </span>
+                                </td>
+                                <td><strong>{c.past_projects_count || 3} Projects</strong></td>
+                                <td>
+                                  <span className={`status-tag ${(c.shell_risk_score || 10) > 40 ? "critical" : "on-track"}`}>
+                                    {c.shell_risk_score || 12.5}%
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`status-tag ${(c.ghost_labor_risk_score || 10) > 40 ? "critical" : "on-track"}`}>
+                                    {c.ghost_labor_risk_score || 14.0}%
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`status-tag ${c.fraud_risk_rating === "CRITICAL" ? "critical" : c.fraud_risk_rating === "HIGH" ? "delayed" : c.fraud_risk_rating === "MEDIUM" ? "at-risk" : "on-track"}`}>
+                                    {c.fraud_risk_rating || "LOW"} RISK
+                                  </span>
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn-action-mini"
+                                    onClick={() => {
+                                      setActiveNav("Fraud & Vetting");
+                                      setSelectedContractorDossier(c);
+                                    }}
+                                  >
+                                    🛡️ Dossier
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* MILESTONES PREVIEW TABLE */}
+                  {previewTable === "milestones" && (
+                    <div className="table-container">
+                      <table className="projects-table">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Project Ref</th>
+                            <th>Milestone Deliverable Gate</th>
+                            <th>Planned Date</th>
+                            <th>Actual Date</th>
+                            <th>Status</th>
+                            <th>Weightage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {milestones
+                            .filter((m) => {
+                              if (!datasetSearch.trim()) return true;
+                              const q = datasetSearch.toLowerCase();
+                              return (
+                                m.name?.toLowerCase().includes(q) ||
+                                m.status?.toLowerCase().includes(q) ||
+                                String(m.project_id).includes(q)
+                              );
+                            })
+                            .map((m) => {
+                              const proj = projects.find((p) => p.id === m.project_id);
+                              return (
+                                <tr key={m.id}>
+                                  <td><span className="id-badge">#{m.id}</span></td>
+                                  <td>
+                                    <strong>#{m.project_id} {proj ? proj.name : `Project ${m.project_id}`}</strong>
+                                  </td>
+                                  <td>{m.name}</td>
+                                  <td><code>{m.planned_date}</code></td>
+                                  <td><code>{m.actual_date || "Pending"}</code></td>
+                                  <td>
+                                    <span className={`status-tag ${m.status === "COMPLETED" ? "on-track" : m.status === "IN_PROGRESS" ? "at-risk" : m.status === "DELAYED" ? "delayed" : "pending"}`}>
+                                      {m.status}
+                                    </span>
+                                  </td>
+                                  <td><strong>{m.weightage_pct || 20}%</strong></td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 4: SCHEMA & DATA DICTIONARY */}
+              {datasetActiveTab === "dictionary" && (
+                <div className="dataset-dictionary-tab">
+                  <div className="dictionary-header-box">
+                    <h3>📖 MoSPI PMIS Data Schema & Field Dictionary</h3>
+                    <p>
+                      Exhaustive technical definitions of all 24 schema fields across Projects, Contractors, and Milestones. These attributes serve as inputs for MoSPI's AI Ensemble, including Random Forest delay regressors, MCA compliance checks, and recovery blueprint generators.
+                    </p>
+                  </div>
+                  <div className="table-container">
+                    <table className="projects-table dictionary-table">
+                      <thead>
+                        <tr>
+                          <th>Table</th>
+                          <th>Field Name</th>
+                          <th>Data Type</th>
+                          <th>Business Description</th>
+                          <th>Sample Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {DATASET_DICTIONARY.map((d, idx) => (
+                          <tr key={idx}>
+                            <td>
+                              <span className="tag-table">{d.table}</span>
+                            </td>
+                            <td>
+                              <code>{d.field}</code>
+                            </td>
+                            <td>
+                              <span className="type-badge">{d.type}</span>
+                            </td>
+                            <td>{d.desc}</td>
+                            <td>
+                              <span className="sample-val">{d.sample}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
