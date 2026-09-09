@@ -1,0 +1,13 @@
+id,name,pan_cin,incorporation_year,category,status,avg_rating,shell_risk_score,ghost_billing_flags,litigation_count,tax_compliance_status,max_project_budget_handled,avg_cost_overrun_pct,avg_delay_days,on_time_delivery_rate,solvency_score,verified_machinery_count
+1,Larsen & Mega Infrastructure Ltd,AAACL1234F,2004,Tier-1,APPROVED,94.5,3.2,0,0,FULLY_COMPLIANT,500000000.0,2.2,18,0.94,95.0,142
+2,National Bridge & Tunnel Engineering Corp,AABCN5678K,2008,Tier-1,APPROVED,91.0,4.5,0,1,FULLY_COMPLIANT,350000000.0,4.7,38,0.88,90.5,98
+3,Brahmaputra Engineering Works,AAEFB9012M,2012,Tier-2,APPROVED,84.0,8.0,0,0,FULLY_COMPLIANT,90000000.0,4.1,21,0.86,84.0,42
+4,Eastern Regional Infra Solutions,AACCE3456P,2015,Tier-2,APPROVED,80.5,11.5,0,1,FULLY_COMPLIANT,60000000.0,5.2,26,0.82,79.5,31
+5,Pinnacle Urban Civil Contractors,AABCP7890Q,2016,Tier-2,APPROVED,76.0,14.0,0,2,COMPLIANT,45000000.0,7.8,42,0.76,74.0,24
+6,Hillside Constructions & Earthmovers,AABCH2345R,2018,Tier-3,WATCHLIST,62.0,26.5,1,3,UNDER_SCRUTINY,25000000.0,14.5,68,0.58,58.0,12
+7,Vanguard Power & Utility Infra,AACCV6789S,2011,Tier-2,APPROVED,82.5,9.5,0,1,FULLY_COMPLIANT,120000000.0,5.9,32,0.81,83.0,55
+8,Apex Shell Engineering Consortium,AAXCA1122T,2021,Tier-3,DISQUALIFIED,28.0,88.5,4,5,DEFAULT_SUSPENDED,20000000.0,48.0,210,0.2,25.0,3
+9,Shadow Ridge Mega Projects Pvt Ltd,AAXCS3344U,2020,Tier-3,DISQUALIFIED,34.0,79.0,3,4,DEFAULT_SUSPENDED,15000000.0,41.5,185,0.25,30.0,4
+10,Sunrise Smart Grid Technologies,AABCS5566V,2017,Tier-2,APPROVED,88.0,5.0,0,0,FULLY_COMPLIANT,80000000.0,3.4,15,0.9,88.5,38
+11,Bharat Heavy Civil Infrastructure Ltd,AAACB7788W,2002,Tier-1,APPROVED,93.0,3.8,0,1,FULLY_COMPLIANT,600000000.0,2.8,22,0.92,93.0,160
+12,Pacific Maritime & Dredging Corp,AACCP9900X,2010,Tier-2,APPROVED,85.0,7.5,0,0,FULLY_COMPLIANT,220000000.0,4.5,28,0.85,86.0,48

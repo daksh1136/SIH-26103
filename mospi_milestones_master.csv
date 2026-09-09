@@ -1,0 +1,114 @@
+id,project_id,title,weightage_pct,target_date,progress_pct,delay_days,status,is_critical_path
+1,1,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+2,1,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+3,1,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+4,1,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+5,1,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+6,1,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+7,2,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+8,2,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+9,2,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,90,45,DELAYED,True
+10,2,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,20,30,DELAYED,True
+11,2,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+12,3,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+13,3,M2: Sub-structure & Foundation Engineering,25,2025-07-31,0,0,SCHEDULED,True
+14,3,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,0,0,SCHEDULED,True
+15,3,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+16,4,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+17,4,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+18,4,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+19,4,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,65,45,DELAYED,True
+20,4,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,20,30,DELAYED,False
+21,4,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+22,5,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+23,5,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+24,5,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,45,45,DELAYED,True
+25,5,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,20,30,DELAYED,True
+26,5,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+27,6,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+28,6,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+29,6,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,65,45,DELAYED,True
+30,6,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+31,6,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+32,6,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+33,6,M7: Commercial Handover & Final Certification,5,2027-02-28,0,0,SCHEDULED,False
+34,7,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+35,7,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+36,7,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+37,7,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+38,7,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+39,8,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+40,8,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+41,8,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+42,8,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,95,CRITICAL,True
+43,8,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,20,30,DELAYED,False
+44,8,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,20,30,DELAYED,False
+45,8,M7: Commercial Handover & Final Certification,5,2027-02-28,20,30,DELAYED,False
+46,9,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+47,9,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+48,9,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+49,9,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+50,10,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+51,10,M2: Sub-structure & Foundation Engineering,25,2025-07-31,75,95,CRITICAL,True
+52,10,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,20,30,DELAYED,True
+53,10,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,20,30,DELAYED,True
+54,10,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+55,11,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+56,11,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+57,11,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+58,11,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,100,0,COMPLETED,True
+59,11,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+60,11,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+61,11,M7: Commercial Handover & Final Certification,5,2027-02-28,0,0,SCHEDULED,False
+62,11,M8: Post-Commissioning Performance Guarantee,5,2027-06-30,0,0,SCHEDULED,False
+63,12,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+64,12,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+65,12,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,45,45,DELAYED,True
+66,12,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,20,30,DELAYED,True
+67,12,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+68,12,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+69,13,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+70,13,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+71,13,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+72,13,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+73,13,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+74,14,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+75,14,M2: Sub-structure & Foundation Engineering,25,2025-07-31,50,95,CRITICAL,True
+76,14,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,20,30,DELAYED,True
+77,14,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,20,30,DELAYED,True
+78,14,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+79,15,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+80,15,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+81,15,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+82,15,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,100,0,COMPLETED,True
+83,15,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+84,15,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+85,16,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+86,16,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+87,16,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,0,0,SCHEDULED,True
+88,16,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+89,16,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+90,17,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+91,17,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+92,17,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,51,95,CRITICAL,True
+93,17,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,20,30,DELAYED,True
+94,17,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,20,30,DELAYED,False
+95,17,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+96,18,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+97,18,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+98,18,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,100,0,COMPLETED,True
+99,18,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,100,0,COMPLETED,True
+100,18,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+101,18,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+102,18,M7: Commercial Handover & Final Certification,5,2027-02-28,0,0,SCHEDULED,False
+103,19,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+104,19,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+105,19,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,87,45,DELAYED,True
+106,19,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,20,30,DELAYED,True
+107,19,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
+108,19,M6: Statutory Safety Audit & Operational Commissioning,5,2026-11-30,0,0,SCHEDULED,False
+109,20,M1: Land Acquisition & Environmental Clearances,15,2025-03-31,100,0,COMPLETED,False
+110,20,M2: Sub-structure & Foundation Engineering,25,2025-07-31,100,0,COMPLETED,True
+111,20,M3: Super-structure Civil Works & Structural Frame,30,2025-11-30,0,0,SCHEDULED,True
+112,20,M4: Equipment Sourcing & Electrical Mechanical Systems,15,2026-03-31,0,0,SCHEDULED,True
+113,20,"M5: Internal Finishing, Testing & Sensor Instrumentation",10,2026-07-31,0,0,SCHEDULED,False
