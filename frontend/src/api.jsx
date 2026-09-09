@@ -84,15 +84,3 @@ export async function generateAlert(projectId) {
 
   return response.json();
 }
-
-export async function getProjectRisk(projectId) {
-  const response = await fetch(
-    `${API_BASE_URL}/api/projects/${projectId}/risk`
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch project risk");
-  }
-
-  return response.json();
-}

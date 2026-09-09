@@ -160,27 +160,28 @@ export default function App() {
   const [uploadedStats, setUploadedStats] = useState(null);
 
   const runPredictionsOnProjectList = (projectsList, sourceName = "Uploaded CSV") => {
+    if (!Array.isArray(projectsList) || !projectsList.length) return;
     const batch = projectsList.map((proj) => {
-      const risk = calculateProjectRiskIntelligence(proj);
-      const doom = evaluateProjectDoomRisk(proj);
-      const anomaly = detectProjectAnomalies(proj);
+      const risk = calculateProjectRiskIntelligence(proj) || {};
+      const doom = evaluateProjectDoomRisk(proj) || {};
+      const anomaly = detectProjectAnomalies(proj) || {};
       return { project: proj, risk, doom, anomaly };
     });
 
     const totalAtRisk = batch.filter(
-      (b) => b.risk.riskLevel === "CRITICAL" || b.risk.riskLevel === "HIGH"
+      (b) => b.risk?.riskLevel === "CRITICAL" || b.risk?.riskLevel === "HIGH"
     ).length;
     const avgDelay = Math.round(
-      batch.reduce((sum, b) => sum + (b.risk.estimatedDelayDays || 0), 0) /
+      batch.reduce((sum, b) => sum + (b.risk?.estimatedDelayDays || 0), 0) /
         (batch.length || 1)
     );
     const avgHealth = Math.round(
-      batch.reduce((sum, b) => sum + (b.risk.healthScore || 0), 0) /
+      batch.reduce((sum, b) => sum + (b.risk?.healthScore || 0), 0) /
         (batch.length || 1)
     );
     const totalCapitalAtRisk = batch
-      .filter((b) => b.risk.riskLevel === "CRITICAL" || b.risk.riskLevel === "HIGH")
-      .reduce((sum, b) => sum + (Number(b.project.approved_budget) || 0), 0);
+      .filter((b) => b.risk?.riskLevel === "CRITICAL" || b.risk?.riskLevel === "HIGH")
+      .reduce((sum, b) => sum + (Number(b.project?.approved_budget) || 0), 0);
 
     setUploadedPredictions(batch);
     setUploadedStats({
@@ -309,6 +310,29 @@ export default function App() {
     setTimeout(() => setDatasetNotification(null), 7000);
   };
 
+  // Selected project for deep AI Risk Drawer
+  const [selectedProject, setSelectedProject] = useState(null);
+
+  // What-If Simulator State
+  const [whatIfProject, setWhatIfProject] = useState(INITIAL_PROJECTS[7]); // Default Rail Infrastructure
+  const [whatIfFunding, setWhatIfFunding] = useState(20);
+  const [whatIfManpower, setWhatIfManpower] = useState(25);
+  const [whatIfMaterials, setWhatIfMaterials] = useState(20);
+  const [whatIfExtension, setWhatIfExtension] = useState(45);
+
+  // AI Assistant Chatbot State
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState([
+    {
+      sender: "ai",
+      text: "👋 Welcome to **MoSPI ProjectPulse Assistant**! I can diagnose project risks, explain SHAP drivers, run What-If simulations, and screen for reporting anomalies. Click a suggested question below or type your query.",
+    },
+  ]);
+
+  // Escalation toast
+  const [toastMessage, setToastMessage] = useState("");
+
   // Sync with live FastAPI backend on mount if running
   useEffect(() => {
     async function syncWithBackend() {
@@ -342,29 +366,6 @@ export default function App() {
     }
     syncWithBackend();
   }, []);
-
-  // Selected project for deep AI Risk Drawer
-  const [selectedProject, setSelectedProject] = useState(null);
-
-  // What-If Simulator State
-  const [whatIfProject, setWhatIfProject] = useState(INITIAL_PROJECTS[7]); // Default Rail Infrastructure
-  const [whatIfFunding, setWhatIfFunding] = useState(20);
-  const [whatIfManpower, setWhatIfManpower] = useState(25);
-  const [whatIfMaterials, setWhatIfMaterials] = useState(20);
-  const [whatIfExtension, setWhatIfExtension] = useState(45);
-
-  // AI Assistant Chatbot State
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState([
-    {
-      sender: "ai",
-      text: "👋 Welcome to **MoSPI ProjectPulse Assistant**! I can diagnose project risks, explain SHAP drivers, run What-If simulations, and screen for reporting anomalies. Click a suggested question below or type your query.",
-    },
-  ]);
-
-  // Escalation toast
-  const [toastMessage, setToastMessage] = useState("");
 
   // Contractor Due Diligence Handlers
   const handleRunVettingAnalysis = async (cId = vettingContractorId, pId = vettingProjectId) => {
@@ -3755,31 +3756,40 @@ export default function App() {
                                   <span className="contractor-pill">{p.contractor_name || "Unassigned"}</span>
                                 </td>
                                 <td>
-                                  <span className={`status-tag ${risk.riskLevel === "CRITICAL" ? "critical" : risk.riskLevel === "HIGH" ? "delayed" : risk.riskLevel === "MEDIUM" ? "at-risk" : "on-track"}`}>
-                                    {risk.estimatedDelayDays > 0 ? `+${risk.estimatedDelayDays}d Delay (${risk.riskLevel})` : "✓ On Track (0d)"}
+                                  <span className={`status-tag ${risk?.riskLevel === "CRITICAL" ? "critical" : risk?.riskLevel === "HIGH" ? "delayed" : risk?.riskLevel === "MEDIUM" ? "at-risk" : "on-track"}`}>
+                                    {(risk?.estimatedDelayDays || 0) > 0 ? `+${risk?.estimatedDelayDays}d Delay (${risk?.riskLevel || "LOW"})` : "✓ On Track (0d)"}
                                   </span>
                                 </td>
                                 <td>
                                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <strong style={{ fontSize: "1.05rem", color: risk.healthScore < 50 ? "#dc2626" : risk.healthScore < 75 ? "#d97706" : "#059669" }}>
-                                      {risk.healthScore}/100
+                                    <strong style={{ fontSize: "1.05rem", color: (risk?.healthScore || 0) < 50 ? "#dc2626" : (risk?.healthScore || 0) < 75 ? "#d97706" : "#059669" }}>
+                                      {risk?.healthScore ?? 70}/100
                                     </strong>
-                                    <span className={`status-tag ${risk.healthCategory.toLowerCase()}`}>
-                                      {risk.healthCategory}
+                                    <span className={`status-tag ${(risk?.healthCategory || "HEALTHY").toLowerCase()}`}>
+                                      {risk?.healthCategory || "HEALTHY"}
                                     </span>
                                   </div>
                                 </td>
                                 <td>
-                                  <div style={{ fontSize: "0.82rem" }}>
-                                    <span className={`status-tag ${doom.doom_category === "CRITICAL_DOOM" ? "critical" : doom.doom_category === "ELEVATED_RISK" ? "delayed" : "on-track"}`}>
-                                      Doom: {doom.doom_score}% ({doom.doom_category.replace(/_/g, " ")})
-                                    </span>
-                                    {doom.recommended_salvage_actions && doom.recommended_salvage_actions.length > 0 && (
-                                      <small style={{ display: "block", color: "#2563eb", marginTop: "4px", fontWeight: 600 }}>
-                                        ↳ {doom.recommended_salvage_actions[0].title}
-                                      </small>
-                                    )}
-                                  </div>
+                                  {(() => {
+                                    const doomCat = doom?.doom_level || doom?.doom_category || "STABLE_HEALTHY";
+                                    const doomScore = doom?.doom_probability_pct ?? doom?.doom_score ?? 0;
+                                    const isCrit = doomCat === "CRITICAL_DOOM";
+                                    const isDistress = doomCat === "HIGH_DISTRESS" || doomCat === "ELEVATED_RISK" || doomCat === "MODERATE_STRAIN";
+                                    const salvageTitle = doom?.recommended_salvage_actions?.[0]?.title || doom?.salvage_blueprint?.[0]?.actions?.[0]?.action || doom?.doom_summary || "Rescue protocols active";
+                                    return (
+                                      <div style={{ fontSize: "0.82rem" }}>
+                                        <span className={`status-tag ${isCrit ? "critical" : isDistress ? "delayed" : "on-track"}`}>
+                                          Doom: {doomScore}% ({String(doomCat).replace(/_/g, " ")})
+                                        </span>
+                                        {salvageTitle && (
+                                          <small style={{ display: "block", color: "#2563eb", marginTop: "4px", fontWeight: 600 }}>
+                                            ↳ {salvageTitle}
+                                          </small>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                                 <td>
                                   <div className="quick-table-actions">

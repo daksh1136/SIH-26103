@@ -59,6 +59,8 @@ export const INITIAL_PROJECTS = [
   },
   {
     id: 3,
+    contractor_id: 4,
+    contractor_name: "Eastern Regional Infra Solutions",
     name: "Digital Governance & Citizen Portal",
     department: "Digital Governance",
     location: "Tripura",
@@ -82,6 +84,8 @@ export const INITIAL_PROJECTS = [
   },
   {
     id: 4,
+    contractor_id: 5,
+    contractor_name: "Pinnacle Urban Civil Contractors",
     name: "Urban Development & Drainage Mission",
     department: "Urban Development",
     location: "Mizoram",
@@ -105,6 +109,8 @@ export const INITIAL_PROJECTS = [
   },
   {
     id: 5,
+    contractor_id: 3,
+    contractor_name: "Apex Highland Builders Pvt Ltd",
     name: "Power Transmission Grid Expansion",
     department: "Energy",
     location: "Nagaland",
@@ -153,6 +159,8 @@ export const INITIAL_PROJECTS = [
   },
   {
     id: 7,
+    contractor_id: 6,
+    contractor_name: "Brahmaputra Engineering Works",
     name: "Education Infrastructure Upgrade",
     department: "Education",
     location: "Sikkim",
@@ -1750,13 +1758,16 @@ export function evaluateProjectDoomRisk(project) {
     financial_progress: fin,
     is_doomed: isDoomed,
     doom_probability_pct: doomPct,
+    doom_score: doomPct,
     doom_level: doomLevel,
+    doom_category: doomLevel,
     doom_badge: doomBadge,
     doom_class: doomClass,
     doom_summary: doomSummary,
     primary_failure_mode: primaryFailureMode,
     failure_modes: failureModes,
     salvage_blueprint: salvageBlueprint,
+    recommended_salvage_actions: (salvageBlueprint && salvageBlueprint[0] && salvageBlueprint[0].actions ? salvageBlueprint[0].actions.map(a => ({ id: a.id, title: a.action, priority: a.priority, impact: a.impact })) : []),
     impact_simulation: {
       baseline_delay_days: baseDelay,
       salvaged_delay_days: delayAfter,
@@ -1906,8 +1917,8 @@ export function exportPredictionsToCsv(predictionsList) {
       r.riskLevel || 'UNKNOWN',
       r.healthScore !== undefined ? r.healthScore : 70,
       r.healthCategory || 'HEALTHY',
-      d.doom_score !== undefined ? d.doom_score : 0,
-      d.doom_category || 'STABLE',
+      d.doom_probability_pct !== undefined ? d.doom_probability_pct : (d.doom_score !== undefined ? d.doom_score : 0),
+      d.doom_level || d.doom_category || 'STABLE',
       a.isAnomaly ? 'YES' : 'NO'
     ];
     return row.map(val => {
@@ -2017,7 +2028,7 @@ export function parseAndValidateShowcaseDataset(rawText) {
       return result;
     };
 
-    const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/['"]/g, ''));
+    const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim().replace(/['"]/g, ''));
     const parsedProjects = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -2025,25 +2036,35 @@ export function parseAndValidateShowcaseDataset(rawText) {
       if (values.length < 2) continue;
       const row = {};
       headers.forEach((h, idx) => {
-        row[h] = values[idx] !== undefined ? values[idx] : '';
+        const cleanKey = h.replace(/[\s_-]+/g, '_');
+        const val = values[idx] !== undefined ? values[idx] : '';
+        row[h] = val;
+        row[cleanKey] = val;
       });
+
+      const pBudget = Number(row.approved_budget || row.budget || row.sanctioned_budget || row.cost) || 10000000;
+      const pSpend = Number(row.expenditure || row.spent || row.actual_spend || row.spending) || Math.round(pBudget * 0.6);
+      const pReleased = Number(row.released_funds || row.funds_released || row.sanctioned_funds) || Math.round(pBudget * 0.8);
+      const pPhys = Math.min(100, Math.max(0, Number(row.physical_progress || row.physical || row.progress) || 50));
+      const pFin = Math.min(100, Math.max(0, Number(row.financial_progress || row.financial || Math.round((pSpend / Math.max(1, pBudget)) * 100)) || 50));
+      const pExp = Math.min(100, Math.max(0, Number(row.expected_progress || row.expected || row.target_progress) || 55));
 
       parsedProjects.push({
         id: Number(row.id) || i,
-        name: String(row.name || `Project ${i}`),
-        department: String(row.department || 'Infrastructure'),
-        location: String(row.location || 'India'),
-        manager: String(row.manager || 'Project Director'),
-        start_date: String(row.start_date || '2025-01-01'),
-        planned_completion: String(row.planned_completion || '2026-12-31'),
-        approved_budget: Number(row.approved_budget) || 10000000,
-        released_funds: Number(row.released_funds) || 8000000,
-        expenditure: Number(row.expenditure) || 5000000,
-        physical_progress: Math.min(100, Math.max(0, Number(row.physical_progress) || 0)),
-        financial_progress: Math.min(100, Math.max(0, Number(row.financial_progress) || 0)),
-        expected_progress: Math.min(100, Math.max(0, Number(row.expected_progress) || 50)),
+        name: String(row.name || row.project_name || row.title || row.project || `Project ${i}`),
+        department: String(row.department || row.ministry || row.dept || row.sector || 'Infrastructure'),
+        location: String(row.location || row.state || row.region || 'India'),
+        manager: String(row.manager || row.director || row.officer || 'Project Director'),
+        start_date: String(row.start_date || row.commencement_date || '2025-01-01'),
+        planned_completion: String(row.planned_completion || row.target_completion || row.deadline || '2026-12-31'),
+        approved_budget: pBudget,
+        released_funds: pReleased,
+        expenditure: pSpend,
+        physical_progress: pPhys,
+        financial_progress: pFin,
+        expected_progress: pExp,
         contractor_id: Number(row.contractor_id) || 1,
-        contractor_name: String(row.contractor_name || 'Generic EPC Consortium'),
+        contractor_name: String(row.contractor_name || row.contractor || row.vendor || 'Generic EPC Consortium'),
         contractor_performance: Number(row.contractor_performance) || 75,
         resource_availability: Number(row.resource_availability) || 70,
         material_availability: Number(row.material_availability) || 70,
